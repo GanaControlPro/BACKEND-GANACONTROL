@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mariadb:11
+    container_name: ganacontrol_db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: ganacontrol
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: ganacontrol_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ganacontrol
+      DB_USER: root
+      DB_PASS: root
+      JWT_SECRET: "cambia_esto_por_un_secreto"
+    ports:
+      - "3000:3000"
+
+volumes:
+  dbdata:
