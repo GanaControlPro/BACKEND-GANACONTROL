@@ -12,5 +12,7 @@ router.use('/produccion', require('./produccion.routes'));
 router.use('/alimentacion', require('./alimentacion.routes'));
 router.use('/eventos-sanitarios', require('./eventoSanitario.routes'));
 router.use('/reproduccion', require('./reproduccion.routes'));
+router.use('/detalle-venta-ganado', require('./detalleVentaGanado.routes'));
+router.use('/detalle-venta-producto', require('./detalleVentaProducto.routes'));
 
 module.exports = router;

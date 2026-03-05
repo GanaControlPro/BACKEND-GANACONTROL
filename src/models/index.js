@@ -11,84 +11,95 @@ const MovimientoProducto = require('./MovimientoProducto')(sequelize, DataTypes)
 const Venta = require('./Venta')(sequelize, DataTypes);
 const DetalleVentaGanado = require('./DetalleVentaGanado')(sequelize, DataTypes);
 const DetalleVentaProducto = require('./DetalleVentaProducto')(sequelize, DataTypes);
-const Produccion = require('./Produccion')(sequelize, DataTypes); 
+const Produccion = require('./Produccion')(sequelize, DataTypes);
 const Alimentacion = require('./Alimentacion')(sequelize, DataTypes);
 const EventoSanitario = require('./EventoSanitario')(sequelize, DataTypes);
 const Reproduccion = require('./Reproduccion')(sequelize, DataTypes);
 
-// ===== relaciones clave =====
-Finca.hasMany(Usuario, { foreignKey: 'finca_id' });
-Usuario.belongsTo(Finca, { foreignKey: 'finca_id' });
+/* =========================================================
+   RELACIONES (alineadas con tu BD ganacontrol)
+   ========================================================= */
 
-Rol.hasMany(Usuario, { foreignKey: 'rol_id' });
-Usuario.belongsTo(Rol, { foreignKey: 'rol_id' });
+/* FINCA -> USUARIO / POTRERO / GANADO / PRODUCTO / VENTA */
+Finca.hasMany(Usuario, { foreignKey: 'finca_id', as: 'usuarios' });
+Usuario.belongsTo(Finca, { foreignKey: 'finca_id', as: 'finca' });
 
-Finca.hasMany(Potrero, { foreignKey: 'finca_id' });
-Potrero.belongsTo(Finca, { foreignKey: 'finca_id' });
+Finca.hasMany(Potrero, { foreignKey: 'finca_id', as: 'potreros' });
+Potrero.belongsTo(Finca, { foreignKey: 'finca_id', as: 'finca' });
 
-Finca.hasMany(Ganado, { foreignKey: 'finca_id' });
-Ganado.belongsTo(Finca, { foreignKey: 'finca_id' });
+Finca.hasMany(Ganado, { foreignKey: 'finca_id', as: 'ganado' });
+Ganado.belongsTo(Finca, { foreignKey: 'finca_id', as: 'finca' });
 
-Potrero.hasMany(Ganado, { foreignKey: 'potrero_id' });
-Ganado.belongsTo(Potrero, { foreignKey: 'potrero_id' });
+Finca.hasMany(Producto, { foreignKey: 'finca_id', as: 'productos' });
+Producto.belongsTo(Finca, { foreignKey: 'finca_id', as: 'finca' });
 
-// ===== PRODUCCION =====
-Finca.hasMany(Produccion, { foreignKey: 'finca_id' });
-Produccion.belongsTo(Finca, { foreignKey: 'finca_id' });
+Finca.hasMany(Venta, { foreignKey: 'finca_id', as: 'ventas' });
+Venta.belongsTo(Finca, { foreignKey: 'finca_id', as: 'finca' });
 
-Ganado.hasMany(Produccion, { foreignKey: 'ganado_id' });
-Produccion.belongsTo(Ganado, { foreignKey: 'ganado_id' });
+/* ROL -> USUARIO */
+Rol.hasMany(Usuario, { foreignKey: 'rol_id', as: 'usuarios' });
+Usuario.belongsTo(Rol, { foreignKey: 'rol_id', as: 'rol' });
 
-// ===== ALIMENTACION =====
-Finca.hasMany(Alimentacion, { foreignKey: 'finca_id' });
-Alimentacion.belongsTo(Finca, { foreignKey: 'finca_id' });
+/* POTRERO -> GANADO */
+Potrero.hasMany(Ganado, { foreignKey: 'potrero_id', as: 'ganado' });
+Ganado.belongsTo(Potrero, { foreignKey: 'potrero_id', as: 'potrero' });
 
-Ganado.hasMany(Alimentacion, { foreignKey: 'ganado_id' });
-Alimentacion.belongsTo(Ganado, { foreignKey: 'ganado_id' });
-
-// ===== EVENTO SANITARIO =====
-Finca.hasMany(EventoSanitario, { foreignKey: 'finca_id' });
-EventoSanitario.belongsTo(Finca, { foreignKey: 'finca_id' });
-
-Ganado.hasMany(EventoSanitario, { foreignKey: 'ganado_id' });
-EventoSanitario.belongsTo(Ganado, { foreignKey: 'ganado_id' });
-
-// ===== REPRODUCCION =====
-Finca.hasMany(Reproduccion, { foreignKey: 'finca_id' });
-Reproduccion.belongsTo(Finca, { foreignKey: 'finca_id' });
-
-// Hembra
-Ganado.hasMany(Reproduccion, { foreignKey: 'hembra_id' });
-Reproduccion.belongsTo(Ganado, { as: 'hembra', foreignKey: 'hembra_id' });
-
-// Macho (o toro)
-Ganado.hasMany(Reproduccion, { foreignKey: 'macho_id' });
-Reproduccion.belongsTo(Ganado, { as: 'macho', foreignKey: 'macho_id' });
-
-// autoreferencias madre/padre
+/* GANADO autoreferencias madre/padre */
 Ganado.belongsTo(Ganado, { as: 'madre', foreignKey: 'madre_id' });
 Ganado.belongsTo(Ganado, { as: 'padre', foreignKey: 'padre_id' });
 
-Producto.hasMany(MovimientoProducto, { foreignKey: 'producto_id' });
-MovimientoProducto.belongsTo(Producto, { foreignKey: 'producto_id' });
+/* PRODUCTO -> MOVIMIENTOS */
+Producto.hasMany(MovimientoProducto, { foreignKey: 'producto_id', as: 'movimientos' });
+MovimientoProducto.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' });
 
-Finca.hasMany(Venta, { foreignKey: 'finca_id' });
-Venta.belongsTo(Finca, { foreignKey: 'finca_id' });
+/* PRODUCCION (FK ganado_id, ON DELETE SET NULL) */
+Ganado.hasMany(Produccion, { foreignKey: 'ganado_id', as: 'producciones' });
+Produccion.belongsTo(Ganado, { foreignKey: 'ganado_id', as: 'ganado' });
 
-Venta.hasMany(DetalleVentaGanado, { foreignKey: 'venta_id' });
-DetalleVentaGanado.belongsTo(Venta, { foreignKey: 'venta_id' });
-DetalleVentaGanado.belongsTo(Ganado, { foreignKey: 'ganado_id' });
+/* ALIMENTACION (FK ganado_id y producto_id) */
+Ganado.hasMany(Alimentacion, { foreignKey: 'ganado_id', as: 'alimentaciones' });
+Alimentacion.belongsTo(Ganado, { foreignKey: 'ganado_id', as: 'ganado' });
 
-Venta.hasMany(DetalleVentaProducto, { foreignKey: 'venta_id' });
-DetalleVentaProducto.belongsTo(Venta, { foreignKey: 'venta_id' });
+Producto.hasMany(Alimentacion, { foreignKey: 'producto_id', as: 'alimentaciones' });
+Alimentacion.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' });
+
+/* EVENTO SANITARIO (FK ganado_id, usuario_id, producto_id) */
+Ganado.hasMany(EventoSanitario, { foreignKey: 'ganado_id', as: 'eventos_sanitarios' });
+EventoSanitario.belongsTo(Ganado, { foreignKey: 'ganado_id', as: 'ganado' });
+
+Usuario.hasMany(EventoSanitario, { foreignKey: 'usuario_id', as: 'eventos_sanitarios' });
+EventoSanitario.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
+Producto.hasMany(EventoSanitario, { foreignKey: 'producto_id', as: 'eventos_sanitarios' });
+EventoSanitario.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' });
+
+/* REPRODUCCION (FK vaca_id y toro_id) */
+Ganado.hasMany(Reproduccion, { foreignKey: 'vaca_id', as: 'reproducciones' });
+Reproduccion.belongsTo(Ganado, { foreignKey: 'vaca_id', as: 'vaca' });
+
+Ganado.hasMany(Reproduccion, { foreignKey: 'toro_id', as: 'servicios_como_toro' });
+Reproduccion.belongsTo(Ganado, { foreignKey: 'toro_id', as: 'toro' });
+
+/* VENTA -> DETALLES */
+Venta.hasMany(DetalleVentaGanado, { foreignKey: 'venta_id', as: 'detalle_ganado', onDelete: 'CASCADE' });
+DetalleVentaGanado.belongsTo(Venta, { foreignKey: 'venta_id', as: 'venta' });
+
+Ganado.hasMany(DetalleVentaGanado, { foreignKey: 'ganado_id', as: 'detalles_venta' });
+DetalleVentaGanado.belongsTo(Ganado, { foreignKey: 'ganado_id', as: 'ganado' });
+
+Venta.hasMany(DetalleVentaProducto, { foreignKey: 'venta_id', as: 'detalle_productos', onDelete: 'CASCADE' });
+DetalleVentaProducto.belongsTo(Venta, { foreignKey: 'venta_id', as: 'venta' });
+
+Producto.hasMany(DetalleVentaProducto, { foreignKey: 'producto_id', as: 'detalles_venta' });
+DetalleVentaProducto.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' });
+
+Produccion.hasMany(DetalleVentaProducto, { foreignKey: 'produccion_id', as: 'detalles_venta_produccion' });
+DetalleVentaProducto.belongsTo(Produccion, { foreignKey: 'produccion_id', as: 'produccion' });
 
 module.exports = {
   sequelize,
   Finca, Rol, Usuario, Potrero, Ganado,
   Producto, MovimientoProducto,
   Venta, DetalleVentaGanado, DetalleVentaProducto,
-  Produccion,
-  Alimentacion,
-  EventoSanitario,
-  Reproduccion
+  Produccion, Alimentacion, EventoSanitario, Reproduccion
 };

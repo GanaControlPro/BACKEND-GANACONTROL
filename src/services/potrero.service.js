@@ -3,32 +3,52 @@ const { Potrero, Ganado } = require("../models");
 class PotreroService {
 
   async crear(data) {
-    return await Potrero.create(data);
+    const potrero = await Potrero.create(data);
+    return potrero;
   }
 
   async listar() {
-    return await Potrero.findAll();
+    const potreros = await Potrero.findAll();
+    return potreros;
   }
 
   async obtenerPorId(id) {
-    return await Potrero.findByPk(id);
+    const potrero = await Potrero.findByPk(id);
+    return potrero;
   }
 
   async actualizar(id, data) {
-    return await Potrero.update(data, { where: { id } });
+    const potrero = await Potrero.findByPk(id);
+    if (!potrero) return null;
+
+    await potrero.update(data);
+    return potrero;
   }
 
   async eliminar(id) {
-    return await Potrero.destroy({ where: { id } });
+    const potrero = await Potrero.findByPk(id);
+    if (!potrero) return null;
+
+    await potrero.destroy();
+    return { id };
   }
 
-  // 🔥 Endpoint especial: mover ganado a potrero
+  // 🔥 mover ganado a potrero
   async moverGanado(ganadoId, potreroId) {
-    return await Ganado.update(
-      { potrero_id: potreroId },
-      { where: { id: ganadoId } }
-    );
+
+    const potrero = await Potrero.findByPk(potreroId);
+    if (!potrero) return null;
+
+    const ganado = await Ganado.findByPk(ganadoId);
+    if (!ganado) return null;
+
+    await ganado.update({
+      potrero_id: potreroId
+    });
+
+    return ganado;
   }
+
 }
 
 module.exports = new PotreroService();

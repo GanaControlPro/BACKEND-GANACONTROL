@@ -3,11 +3,14 @@ const { ok } = require('../utils/response');
 
 const listar = async (req, res, next) => {
   try {
-    if (typeof service.listar !== 'function') {
-      return ok(res, 'Listado OK', []);
-    }
+
     const data = await service.listar();
-    return ok(res, 'Listado OK', data);
+
+    return ok(res, {
+      mensaje: 'Listado OK',
+      data
+    });
+
   } catch (e) {
     return next(e);
   }
@@ -15,16 +18,22 @@ const listar = async (req, res, next) => {
 
 const crear = async (req, res, next) => {
   try {
+
     if (!req.body || Object.keys(req.body).length === 0) {
-      return ok(res, 'El body es obligatorio', null, 400);
+      return ok(res, {
+        mensaje: 'El body es obligatorio',
+        code: 400
+      });
     }
 
-    if (typeof service.crear !== 'function') {
-      return ok(res, 'Creado OK', req.body, 201);
-    }
+    const data = await service.crear(req.body);
 
-    const data = await service.crear(req.body, req.user);
-    return ok(res, 'Creado OK', data, 201);
+    return ok(res, {
+      mensaje: 'Creado OK',
+      data,
+      code: 201
+    });
+
   } catch (e) {
     return next(e);
   }
@@ -32,19 +41,23 @@ const crear = async (req, res, next) => {
 
 const actualizar = async (req, res, next) => {
   try {
+
     const { id } = req.params;
 
-    if (!id) return ok(res, 'El id es obligatorio', null, 400);
-    if (!req.body || Object.keys(req.body).length === 0) {
-      return ok(res, 'El body es obligatorio', null, 400);
+    if (!id) {
+      return ok(res, {
+        mensaje: 'El id es obligatorio',
+        code: 400
+      });
     }
 
-    if (typeof service.actualizar !== 'function') {
-      return ok(res, 'Actualizado OK', { id, ...req.body });
-    }
+    const data = await service.actualizar(id, req.body);
 
-    const data = await service.actualizar(id, req.body, req.user);
-    return ok(res, 'Actualizado OK', data);
+    return ok(res, {
+      mensaje: 'Actualizado OK',
+      data
+    });
+
   } catch (e) {
     return next(e);
   }
@@ -52,15 +65,23 @@ const actualizar = async (req, res, next) => {
 
 const eliminar = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!id) return ok(res, 'El id es obligatorio', null, 400);
 
-    if (typeof service.eliminar !== 'function') {
-      return ok(res, 'Eliminado OK', { id });
+    const { id } = req.params;
+
+    if (!id) {
+      return ok(res, {
+        mensaje: 'El id es obligatorio',
+        code: 400
+      });
     }
 
-    const data = await service.eliminar(id, req.user);
-    return ok(res, 'Eliminado OK', data);
+    const data = await service.eliminar(id);
+
+    return ok(res, {
+      mensaje: 'Eliminado OK',
+      data
+    });
+
   } catch (e) {
     return next(e);
   }
