@@ -1,12 +1,28 @@
 module.exports = (sequelize, DataTypes) => {
-  const Alimentacion = sequelize.define('Alimentacion', {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    ganado_id: { type: DataTypes.INTEGER, allowNull: false },
-    producto_id: { type: DataTypes.INTEGER, allowNull: false },
-    fecha: { type: DataTypes.DATEONLY, allowNull: false },
-    cantidad: { type: DataTypes.DECIMAL(8, 2), allowNull: false },
-    observacion: { type: DataTypes.STRING(200), allowNull: true }
-  }, { tableName: 'alimentacion', timestamps: false });
-
-  return Alimentacion;
+  return sequelize.define('Alimentacion', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false
+    },
+    tipo_alimento: {
+      type: DataTypes.STRING(100),
+      allowNull: false
+    },
+    cantidad: {
+      type: DataTypes.FLOAT,
+      allowNull: false
+    },
+    unidad: {
+      type: DataTypes.STRING(20),
+      allowNull: false
+    }
+  }, {
+    tableName: 'alimentaciones',
+    timestamps: true
+  });
 };

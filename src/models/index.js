@@ -11,6 +11,10 @@ const MovimientoProducto = require('./MovimientoProducto')(sequelize, DataTypes)
 const Venta = require('./Venta')(sequelize, DataTypes);
 const DetalleVentaGanado = require('./DetalleVentaGanado')(sequelize, DataTypes);
 const DetalleVentaProducto = require('./DetalleVentaProducto')(sequelize, DataTypes);
+const Produccion = require('./Produccion')(sequelize, DataTypes); 
+const Alimentacion = require('./Alimentacion')(sequelize, DataTypes);
+const EventoSanitario = require('./EventoSanitario')(sequelize, DataTypes);
+const Reproduccion = require('./Reproduccion')(sequelize, DataTypes);
 
 // ===== relaciones clave =====
 Finca.hasMany(Usuario, { foreignKey: 'finca_id' });
@@ -27,6 +31,39 @@ Ganado.belongsTo(Finca, { foreignKey: 'finca_id' });
 
 Potrero.hasMany(Ganado, { foreignKey: 'potrero_id' });
 Ganado.belongsTo(Potrero, { foreignKey: 'potrero_id' });
+
+// ===== PRODUCCION =====
+Finca.hasMany(Produccion, { foreignKey: 'finca_id' });
+Produccion.belongsTo(Finca, { foreignKey: 'finca_id' });
+
+Ganado.hasMany(Produccion, { foreignKey: 'ganado_id' });
+Produccion.belongsTo(Ganado, { foreignKey: 'ganado_id' });
+
+// ===== ALIMENTACION =====
+Finca.hasMany(Alimentacion, { foreignKey: 'finca_id' });
+Alimentacion.belongsTo(Finca, { foreignKey: 'finca_id' });
+
+Ganado.hasMany(Alimentacion, { foreignKey: 'ganado_id' });
+Alimentacion.belongsTo(Ganado, { foreignKey: 'ganado_id' });
+
+// ===== EVENTO SANITARIO =====
+Finca.hasMany(EventoSanitario, { foreignKey: 'finca_id' });
+EventoSanitario.belongsTo(Finca, { foreignKey: 'finca_id' });
+
+Ganado.hasMany(EventoSanitario, { foreignKey: 'ganado_id' });
+EventoSanitario.belongsTo(Ganado, { foreignKey: 'ganado_id' });
+
+// ===== REPRODUCCION =====
+Finca.hasMany(Reproduccion, { foreignKey: 'finca_id' });
+Reproduccion.belongsTo(Finca, { foreignKey: 'finca_id' });
+
+// Hembra
+Ganado.hasMany(Reproduccion, { foreignKey: 'hembra_id' });
+Reproduccion.belongsTo(Ganado, { as: 'hembra', foreignKey: 'hembra_id' });
+
+// Macho (o toro)
+Ganado.hasMany(Reproduccion, { foreignKey: 'macho_id' });
+Reproduccion.belongsTo(Ganado, { as: 'macho', foreignKey: 'macho_id' });
 
 // autoreferencias madre/padre
 Ganado.belongsTo(Ganado, { as: 'madre', foreignKey: 'madre_id' });
@@ -49,5 +86,9 @@ module.exports = {
   sequelize,
   Finca, Rol, Usuario, Potrero, Ganado,
   Producto, MovimientoProducto,
-  Venta, DetalleVentaGanado, DetalleVentaProducto
+  Venta, DetalleVentaGanado, DetalleVentaProducto,
+  Produccion,
+  Alimentacion,
+  EventoSanitario,
+  Reproduccion
 };
