@@ -6,7 +6,6 @@ const { ok, fail } = require('../utils/response');
 function getJwtConfig() {
   const secret = process.env.JWT_SECRET;
   if (!secret || String(secret).trim().length < 10) {
-    // mínimo para no firmar tokens con un secret flojo/vacío
     return { secret: null, expiresIn: null };
   }
   return {
@@ -24,16 +23,20 @@ async function login(req, res, next) {
     }
 
     const user = await Usuario.findOne({
-      where: { correo, activo: true },
-      include: [{ model: Rol }],
+      where: { correo: String(correo).trim().toLowerCase(), activo: true },
+      include: [{ model: Rol, as: 'rol' }],
     });
 
-    if (!user) return fail(res, { code: 401, mensaje: 'Credenciales inválidas' });
+    if (!user) {
+      return fail(res, { code: 401, mensaje: 'Credenciales inválidas' });
+    }
 
     const okPass = await bcrypt.compare(String(contrasena), String(user.contrasena));
-    if (!okPass) return fail(res, { code: 401, mensaje: 'Credenciales inválidas' });
+    if (!okPass) {
+      return fail(res, { code: 401, mensaje: 'Credenciales inválidas' });
+    }
 
-    const rolNombre = user.Rol?.nombre || null;
+    const rolNombre = user.rol?.nombre || null;
 
     const payload = {
       id: user.id,
@@ -72,7 +75,6 @@ async function login(req, res, next) {
 }
 
 async function me(req, res) {
-  // Si tu middleware auth no puso req.user, devolvemos 401
   if (!req.user) {
     return fail(res, { code: 401, mensaje: 'No autorizado' });
   }

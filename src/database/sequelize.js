@@ -4,14 +4,14 @@ require('dotenv').config();
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
-  process.env.DB_PASS,
+  process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT || 3306),
     dialect: 'mysql',
     logging: false,
     timezone: '-05:00',
-    dialectOptions: { 
+    dialectOptions: {
       dateStrings: true,
       multipleStatements: true
     }

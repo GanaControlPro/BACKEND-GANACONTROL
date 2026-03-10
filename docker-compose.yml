@@ -26,14 +26,13 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - .env.docker
     ports:
       - "3000:3000"
-    # Si quieres que SIEMPRE arranque con migraciones+seed (solo DEV), descomenta:
-    # command: >
-    #   sh -c "npx sequelize-cli db:migrate &&
-    #          npx sequelize-cli db:seed:all &&
-    #          npm run dev"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
 
   phpmyadmin:
     image: phpmyadmin:latest
@@ -43,6 +42,7 @@ services:
       - db
     environment:
       PMA_HOST: db
+      PMA_PORT: 3306
     ports:
       - "8080:80"
 
