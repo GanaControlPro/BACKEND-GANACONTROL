@@ -8,7 +8,7 @@ const Finca = require('./Finca')(sequelize, DataTypes);
 const Rol = require('./Rol')(sequelize, DataTypes);
 const Usuario = require('./Usuario')(sequelize, DataTypes);
 const Sesion = require('./Sesion')(sequelize, DataTypes);
-
+const LogActividad = require('./LogActividad')(sequelize, DataTypes);
 const Potrero = require('./Potrero')(sequelize, DataTypes);
 const Ganado = require('./Ganado')(sequelize, DataTypes);
 const Producto = require('./Producto')(sequelize, DataTypes);
@@ -52,6 +52,17 @@ Usuario.hasMany(Sesion, {
   onDelete: 'CASCADE'
 });
 Sesion.belongsTo(Usuario, {
+  foreignKey: 'usuario_id',
+  as: 'usuario'
+});
+
+Usuario.hasMany(LogActividad, {
+  foreignKey: 'usuario_id',
+  as: 'logs_actividad'
+});
+
+/* USUARIO -> ACTIVIDAD*/
+LogActividad.belongsTo(Usuario, {
   foreignKey: 'usuario_id',
   as: 'usuario'
 });
@@ -207,6 +218,7 @@ module.exports = {
   Rol,
   Usuario,
   Sesion,
+  LogActividad,
   Potrero,
   Ganado,
   Producto,

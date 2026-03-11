@@ -12,6 +12,14 @@ const {
   resetPassword
 } = require('../controllers/auth.controller');
 
+const {
+  loginLimiter,
+  refreshLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+  googleLoginLimiter
+} = require('../middlewares/authLimiter');
+
 const { validate } = require('../validators');
 const {
   loginSchema,
@@ -47,12 +55,14 @@ router.get('/ping', (req, res) => {
 
 router.post(
   '/login',
+  ensureMw(loginLimiter, 'loginLimiter'),
   ensureMw(validate(loginSchema), 'validate(loginSchema)'),
   ensureFn(login, 'login')
 );
 
 router.post(
   '/google',
+  ensureMw(googleLoginLimiter, 'googleLoginLimiter'),
   ensureMw(validate(googleLoginSchema), 'validate(googleLoginSchema)'),
   ensureFn(googleLogin, 'googleLogin')
 );
@@ -65,6 +75,7 @@ router.get(
 
 router.post(
   '/refresh',
+  ensureMw(refreshLimiter, 'refreshLimiter'),
   ensureMw(validate(refreshSchema), 'validate(refreshSchema)'),
   ensureFn(refresh, 'refresh')
 );
@@ -89,12 +100,14 @@ router.get(
 
 router.post(
   '/forgot-password',
+  ensureMw(forgotPasswordLimiter, 'forgotPasswordLimiter'),
   ensureMw(validate(forgotPasswordSchema), 'validate(forgotPasswordSchema)'),
   ensureFn(forgotPassword, 'forgotPassword')
 );
 
 router.post(
   '/reset-password',
+  ensureMw(resetPasswordLimiter, 'resetPasswordLimiter'),
   ensureMw(validate(resetPasswordSchema), 'validate(resetPasswordSchema)'),
   ensureFn(resetPassword, 'resetPassword')
 );

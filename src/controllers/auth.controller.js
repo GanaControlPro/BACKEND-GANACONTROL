@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { Usuario, Rol, Sesion } = require('../models');
 const { verifyGoogleIdToken } = require('../services/google.service');
 const crypto = require('crypto');
+const { registrarActividad } = require('../services/logActividad.service');
 const { sendResetPasswordMail } = require('../services/mail.service');
 const { ok, fail } = require('../utils/response');
 const {
@@ -275,6 +276,14 @@ async function login(req, res) {
       ultimo_login: new Date()
     });
 
+    await registrarActividad({
+      usuarioId: user.id,
+      modulo: 'AUTH',
+      accion: 'LOGIN',
+      descripcion: `Inicio de sesión exitoso para ${user.correo}`,
+      req
+    });
+
     return ok(res, 'Login exitoso', {
       accessToken,
       refreshToken,
@@ -363,6 +372,14 @@ async function logout(req, res) {
       return fail(res, 'Sesión no encontrada', null, 404);
     }
 
+    await registrarActividad({
+      usuarioId: req.user?.id || null,
+      modulo: 'AUTH',
+      accion: 'LOGOUT',
+      descripcion: 'Cierre de sesión de la sesión actual',
+      req
+    });
+
     return ok(res, 'Logout exitoso', null, 200);
   } catch (error) {
     return handleControllerError(res, 'Auth.logout', error);
@@ -389,6 +406,14 @@ async function logoutAll(req, res) {
         }
       }
     );
+
+    await registrarActividad({
+      usuarioId: req.user.id,
+      modulo: 'AUTH',
+      accion: 'LOGOUT_ALL',
+      descripcion: `Cierre de todas las sesiones. Total revocadas: ${cantidad}`,
+      req
+    });
 
     return ok(res, 'Todas las sesiones fueron cerradas', {
       sesiones_revocadas: cantidad
@@ -553,6 +578,14 @@ async function forgotPassword(req, res) {
       userName: user.nombres
     });
 
+    await registrarActividad({
+      usuarioId: user?.id || null,
+      modulo: 'AUTH',
+      accion: 'FORGOT_PASSWORD',
+      descripcion: `Solicitud de recuperación de contraseña para ${normalizeEmail(correo)}`,
+      req
+    });
+
     return ok(
       res,
       'Si el correo existe, se enviaron instrucciones para recuperar la contraseña',
@@ -615,6 +648,14 @@ async function resetPassword(req, res) {
         }
       }
     );
+
+    await registrarActividad({
+      usuarioId: user.id,
+      modulo: 'AUTH',
+      accion: 'RESET_PASSWORD',
+      descripcion: 'Restablecimiento de contraseña exitoso',
+      req
+    });
 
     return ok(
       res,
