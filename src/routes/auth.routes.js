@@ -1,10 +1,29 @@
 const router = require('express').Router();
-const { login, me } = require('../controllers/auth.controller');
+
+const {
+  login,
+  me,
+  refresh,
+  logout,
+  logoutAll,
+  sessions,
+  googleLogin,
+  forgotPassword,
+  resetPassword
+} = require('../controllers/auth.controller');
+
 const { validate } = require('../validators');
-const { loginSchema } = require('../validators/auth.schema');
+const {
+  loginSchema,
+  refreshSchema,
+  logoutSchema,
+  googleLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema
+} = require('../validators/auth.schema');
+
 const { authJwt } = require('../middlewares/authJwt');
 
-// Helpers anti "argument handler must be a function"
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
     throw new Error(`Handler inválido: ${name} no es función`);
@@ -19,7 +38,12 @@ const ensureMw = (mw, name) => {
   return mw;
 };
 
-router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'auth' }));
+router.get('/ping', (req, res) => {
+  return res.json({
+    ok: true,
+    modulo: 'auth'
+  });
+});
 
 router.post(
   '/login',
@@ -27,10 +51,52 @@ router.post(
   ensureFn(login, 'login')
 );
 
+router.post(
+  '/google',
+  ensureMw(validate(googleLoginSchema), 'validate(googleLoginSchema)'),
+  ensureFn(googleLogin, 'googleLogin')
+);
+
 router.get(
   '/me',
   ensureMw(authJwt, 'authJwt'),
   ensureFn(me, 'me')
+);
+
+router.post(
+  '/refresh',
+  ensureMw(validate(refreshSchema), 'validate(refreshSchema)'),
+  ensureFn(refresh, 'refresh')
+);
+
+router.post(
+  '/logout',
+  ensureMw(validate(logoutSchema), 'validate(logoutSchema)'),
+  ensureFn(logout, 'logout')
+);
+
+router.post(
+  '/logout-all',
+  ensureMw(authJwt, 'authJwt'),
+  ensureFn(logoutAll, 'logoutAll')
+);
+
+router.get(
+  '/sessions',
+  ensureMw(authJwt, 'authJwt'),
+  ensureFn(sessions, 'sessions')
+);
+
+router.post(
+  '/forgot-password',
+  ensureMw(validate(forgotPasswordSchema), 'validate(forgotPasswordSchema)'),
+  ensureFn(forgotPassword, 'forgotPassword')
+);
+
+router.post(
+  '/reset-password',
+  ensureMw(validate(resetPasswordSchema), 'validate(resetPasswordSchema)'),
+  ensureFn(resetPassword, 'resetPassword')
 );
 
 module.exports = router;

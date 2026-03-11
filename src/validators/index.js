@@ -5,10 +5,25 @@ function validate(schema) {
         abortEarly: false,
         stripUnknown: true
       });
+
       req.body = data;
       next();
-    } catch (e) {
-      next(e);
+
+    } catch (err) {
+
+      if (err.isJoi) {
+        return res.status(400).json({
+          ok: false,
+          mensaje: "Validación fallida",
+          data: null,
+          errores: err.details.map(d => ({
+            campo: d.path.join('.'),
+            mensaje: d.message
+          }))
+        });
+      }
+
+      next(err);
     }
   };
 }

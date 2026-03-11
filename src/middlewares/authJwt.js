@@ -1,29 +1,24 @@
-const jwt = require('jsonwebtoken');
 const { fail } = require('../utils/response');
+const { verifyAccessToken } = require('../utils/token');
 
 function authJwt(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
   if (!token) {
-    return fail(res, { code: 401, mensaje: 'Token requerido' });
+    return fail(res, 'Token requerido', null, 401);
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Payload típico:
-    // { id, finca_id, rol }
+    const payload = verifyAccessToken(token);
     req.user = payload;
-
     next();
   } catch (error) {
-
     if (error.name === 'TokenExpiredError') {
-      return fail(res, { code: 401, mensaje: 'Token expirado' });
+      return fail(res, 'Token expirado', null, 401);
     }
 
-    return fail(res, { code: 401, mensaje: 'Token inválido' });
+    return fail(res, 'Token inválido', null, 401);
   }
 }
 

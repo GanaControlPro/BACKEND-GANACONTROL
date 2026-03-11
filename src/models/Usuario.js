@@ -10,8 +10,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TINYINT,
       allowNull: false,
       validate: {
-        notNull: { msg: "finca_id es obligatorio" },
-        isInt: { msg: "finca_id debe ser entero" }
+        notNull: { msg: 'finca_id es obligatorio' },
+        isInt: { msg: 'finca_id debe ser entero' }
       }
     },
 
@@ -19,8 +19,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TINYINT,
       allowNull: false,
       validate: {
-        notNull: { msg: "rol_id es obligatorio" },
-        isInt: { msg: "rol_id debe ser entero" }
+        notNull: { msg: 'rol_id es obligatorio' },
+        isInt: { msg: 'rol_id debe ser entero' }
       }
     },
 
@@ -28,8 +28,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(100),
       allowNull: false,
       validate: {
-        notEmpty: { msg: "Los nombres son obligatorios" },
-        len: { args: [2, 100], msg: "nombres debe tener entre 2 y 100 caracteres" }
+        notEmpty: { msg: 'Los nombres son obligatorios' },
+        len: { args: [2, 100], msg: 'nombres debe tener entre 2 y 100 caracteres' }
       }
     },
 
@@ -37,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(100),
       allowNull: true,
       validate: {
-        len: { args: [0, 100], msg: "apellidos máximo 100 caracteres" }
+        len: { args: [0, 100], msg: 'apellidos máximo 100 caracteres' }
       }
     },
 
@@ -46,8 +46,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       unique: true,
       validate: {
-        isEmail: { msg: "El correo no tiene un formato válido" },
-        len: { args: [0, 150], msg: "correo máximo 150 caracteres" }
+        isEmail: { msg: 'El correo no tiene un formato válido' },
+        len: { args: [0, 150], msg: 'correo máximo 150 caracteres' }
       }
     },
 
@@ -55,9 +55,47 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(255),
       allowNull: false,
       validate: {
-        notEmpty: { msg: "La contraseña es obligatoria" },
-        len: { args: [6, 255], msg: "La contraseña debe tener al menos 6 caracteres" }
+        notEmpty: { msg: 'La contraseña es obligatoria' },
+        len: { args: [6, 255], msg: 'La contraseña debe tener al menos 6 caracteres' }
       }
+    },
+
+    google_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      unique: true
+    },
+
+    proveedor_auth: {
+      type: DataTypes.ENUM('local', 'google', 'local_google'),
+      allowNull: false,
+      defaultValue: 'local'
+    },
+
+    email_verificado: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
+
+    foto_url: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+
+    ultimo_login: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+
+    token_recuperacion_hash: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+
+    token_recuperacion_expira: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
 
     activo: {
@@ -76,7 +114,6 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'usuario',
     timestamps: false,
     hooks: {
-      // Normaliza correo (evita duplicados por mayúsculas)
       beforeValidate: (user) => {
         if (user.correo) user.correo = user.correo.trim().toLowerCase();
       }
@@ -99,6 +136,13 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'usuario_id',
       as: 'eventos_sanitarios'
     });
+
+    if (models.Sesion) {
+      Usuario.hasMany(models.Sesion, {
+        foreignKey: 'usuario_id',
+        as: 'sesiones'
+      });
+    }
   };
 
   return Usuario;
