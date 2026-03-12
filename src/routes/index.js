@@ -17,6 +17,7 @@ router.get('/ping', (req, res) => {
 router.use('/auth', require('./auth.routes'));
 router.use('/roles', require('./rol.routes'));
 router.use('/usuarios', require('./usuario.routes'));
+router.use('/logs', require('./logActividad.routes'));
 
 /*
 |--------------------------------------------------------------------------
