@@ -8,6 +8,8 @@ const Finca = require('./Finca')(sequelize, DataTypes);
 const Rol = require('./Rol')(sequelize, DataTypes);
 const Usuario = require('./Usuario')(sequelize, DataTypes);
 const Sesion = require('./Sesion')(sequelize, DataTypes);
+const Permiso = require('./Permiso')(sequelize, DataTypes);
+const RolPermiso = require('./RolPermiso')(sequelize, DataTypes);
 const LogActividad = require('./LogActividad')(sequelize, DataTypes);
 const Potrero = require('./Potrero')(sequelize, DataTypes);
 const Ganado = require('./Ganado')(sequelize, DataTypes);
@@ -65,6 +67,41 @@ Usuario.hasMany(LogActividad, {
 LogActividad.belongsTo(Usuario, {
   foreignKey: 'usuario_id',
   as: 'usuario'
+});
+
+/* ROL -> PERMISO*/
+Rol.belongsToMany(Permiso, {
+  through: RolPermiso,
+  foreignKey: 'rol_id',
+  otherKey: 'permiso_id',
+  as: 'permisos'
+});
+
+Permiso.belongsToMany(Rol, {
+  through: RolPermiso,
+  foreignKey: 'permiso_id',
+  otherKey: 'rol_id',
+  as: 'roles'
+});
+
+Rol.hasMany(RolPermiso, {
+  foreignKey: 'rol_id',
+  as: 'roles_permisos'
+});
+
+RolPermiso.belongsTo(Rol, {
+  foreignKey: 'rol_id',
+  as: 'rol'
+});
+
+Permiso.hasMany(RolPermiso, {
+  foreignKey: 'permiso_id',
+  as: 'roles_permisos'
+});
+
+RolPermiso.belongsTo(Permiso, {
+  foreignKey: 'permiso_id',
+  as: 'permiso'
 });
 
 /* POTRERO -> GANADO */
@@ -218,6 +255,8 @@ module.exports = {
   Rol,
   Usuario,
   Sesion,
+  Permiso,
+  RolPermiso,
   LogActividad,
   Potrero,
   Ganado,

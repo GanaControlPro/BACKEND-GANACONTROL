@@ -1,36 +1,61 @@
-// src/routes/ventas.routes.js
 const router = require('express').Router();
 
 const { authJwt } = require('../middlewares/authJwt');
-const { authorize } = require('../middlewares/authorize');
+const { can } = require('../middlewares/can');
 const { validate } = require('../validators');
 const { crearVentaSchema } = require('../validators/ventas.schema');
 const c = require('../controllers/ventas.controller');
 
-// Anti error: "argument handler must be a function"
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
-    return (req, res) =>
-      res.status(500).json({ ok: false, mensaje: `Handler inválido: ${name} no es función` });
+    throw new Error(`Handler inválido: ${name} no es función`);
   }
   return fn;
 };
 
-router.use(authJwt);
+const ensureMw = (mw, name) => {
+  if (typeof mw !== 'function') {
+    throw new Error(`Middleware inválido: ${name} no es función`);
+  }
+  return mw;
+};
 
-// Health
 router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'ventas' }));
 
-// ventas: Admin y Contador
-const canVentas = ['Administrador', 'Contador'];
+router.get(
+  '/',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.ver'), "can('ventas.ver')"),
+  ensureFn(c.listar, 'ventasController.listar')
+);
 
-router.get('/', authorize(canVentas), ensureFn(c.listar, 'ventasController.listar'));
-router.get('/:id', authorize(canVentas), ensureFn(c.detalle, 'ventasController.detalle'));
+router.get(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.ver'), "can('ventas.ver')"),
+  ensureFn(c.detalle, 'ventasController.detalle')
+);
+
 router.post(
   '/',
-  authorize(canVentas),
-  validate(crearVentaSchema),
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.crear'), "can('ventas.crear')"),
+  ensureMw(validate(crearVentaSchema), 'validate(crearVentaSchema)'),
   ensureFn(c.crear, 'ventasController.crear')
+);
+
+router.put(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.editar'), "can('ventas.editar')"),
+  ensureFn(c.actualizar, 'ventasController.actualizar')
+);
+
+router.delete(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.eliminar'), "can('ventas.eliminar')"),
+  ensureFn(c.eliminar, 'ventasController.eliminar')
 );
 
 module.exports = router;

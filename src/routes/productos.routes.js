@@ -1,43 +1,70 @@
-// src/routes/productos.routes.js
 const router = require('express').Router();
 const { authJwt } = require('../middlewares/authJwt');
-const { authorize } = require('../middlewares/authorize');
+const { can } = require('../middlewares/can');
 const { validate } = require('../validators');
-const { crearProductoSchema, movimientoProductoSchema } = require('../validators/productos.schema');
+const {
+  crearProductoSchema,
+  movimientoProductoSchema
+} = require('../validators/productos.schema');
 const c = require('../controllers/productos.controller');
 
-// Anti error: "argument handler must be a function"
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
-    return (req, res) =>
-      res.status(500).json({ ok: false, mensaje: `Handler inválido: ${name} no es función` });
+    throw new Error(`Handler inválido: ${name} no es función`);
   }
   return fn;
 };
 
-router.use(authJwt);
+const ensureMw = (mw, name) => {
+  if (typeof mw !== 'function') {
+    throw new Error(`Middleware inválido: ${name} no es función`);
+  }
+  return mw;
+};
 
-// Health
 router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'productos' }));
 
-// Roles (ajusta a tu gusto)
-// const canRead = ['Administrador', 'Operario', 'Veterinario'];
-const canRead = ['Administrador', 'Operario'];
-const canWrite = ['Administrador', 'Operario'];
+router.get(
+  '/',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.ver'), "can('productos.ver')"),
+  ensureFn(c.listar, 'productosController.listar')
+);
 
-router.get('/', authorize(canRead), ensureFn(c.listar, 'productosController.listar'));
+router.get(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.ver'), "can('productos.ver')"),
+  ensureFn(c.obtenerPorId, 'productosController.obtenerPorId')
+);
 
 router.post(
   '/',
-  authorize(canWrite),
-  validate(crearProductoSchema),
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.crear'), "can('productos.crear')"),
+  ensureMw(validate(crearProductoSchema), 'validate(crearProductoSchema)'),
   ensureFn(c.crear, 'productosController.crear')
+);
+
+router.put(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.editar'), "can('productos.editar')"),
+  ensureFn(c.actualizar, 'productosController.actualizar')
+);
+
+router.delete(
+  '/:id',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.eliminar'), "can('productos.eliminar')"),
+  ensureFn(c.eliminar, 'productosController.eliminar')
 );
 
 router.post(
   '/movimientos',
-  authorize(canWrite),
-  validate(movimientoProductoSchema),
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.editar'), "can('productos.editar')"),
+  ensureMw(validate(movimientoProductoSchema), 'validate(movimientoProductoSchema)'),
   ensureFn(c.movimiento, 'productosController.movimiento')
 );
 
