@@ -1,5 +1,6 @@
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const {
+  sequelize,
   Usuario,
   Ganado,
   Producto,
@@ -83,34 +84,258 @@ async function resumen(req, res, next) {
       return acc + Number(item.cantidad || 0);
     }, 0);
 
-    return ok(res, 'Resumen del dashboard obtenido correctamente', {
+    return ok(
+      res,
+      'Resumen del dashboard obtenido correctamente',
+      {
+        periodo: {
+          inicioMes,
+          finMes
+        },
+        resumen: {
+          totalUsuarios,
+          totalGanado,
+          totalProductos,
+          totalPotreros,
+          totalVentas,
+          ventasMes,
+          sesionesActivas,
+          eventosSanitariosMes,
+          totalProduccionMes
+        }
+      },
+      200
+    );
+  } catch (error) {
+    console.error('Dashboard.resumen ERROR REAL:', error);
+    return res.status(500).json({
+      ok: false,
+      mensaje: error.message || 'Error en el servidor',
+      data: null,
+      errores: null
+    });
+  }
+}
+
+async function ventasMes(req, res, next) {
+  try {
+    const inicioMes = getInicioMes();
+    const finMes = getFinMes();
+
+    const ventas = await Venta.findAll({
+      attributes: [
+        'fecha',
+        [fn('COUNT', col('id')), 'cantidad_ventas'],
+        [fn('SUM', col('total')), 'total_vendido']
+      ],
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      },
+      group: ['fecha'],
+      order: [['fecha', 'ASC']]
+    });
+
+    const totalVentasMes = await Venta.count({
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      }
+    });
+
+    const totalVendidoMes = await Venta.sum('total', {
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      }
+    });
+
+    const promedioVenta =
+      totalVentasMes > 0
+        ? Number(totalVendidoMes || 0) / totalVentasMes
+        : 0;
+
+    return ok(
+      res,
+      'Métricas de ventas del mes obtenidas correctamente',
+      {
+        periodo: {
+          inicioMes,
+          finMes
+        },
+        resumen: {
+          totalVentasMes,
+          totalVendidoMes: Number(totalVendidoMes || 0),
+          promedioVenta
+        },
+        ventasPorDia: ventas.map((v) => ({
+          fecha: v.fecha,
+          cantidadVentas: Number(v.get('cantidad_ventas') || 0),
+          totalVendido: Number(v.get('total_vendido') || 0)
+        }))
+      },
+      200
+    );
+  } catch (error) {
+    console.error('Dashboard.ventasMes:', error);
+    return next(error);
+  }
+}
+
+async function produccionMes(req, res, next) {
+  try {
+    const inicioMes = getInicioMes();
+    const finMes = getFinMes();
+
+    const produccionPorDia = await Produccion.findAll({
+      attributes: [
+        'fecha',
+        [fn('COUNT', col('id')), 'cantidad_registros'],
+        [fn('SUM', col('cantidad')), 'total_producido']
+      ],
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      },
+      group: ['fecha'],
+      order: [['fecha', 'ASC']]
+    });
+
+    const produccionPorTipo = await Produccion.findAll({
+      attributes: [
+        'tipo',
+        [fn('COUNT', col('id')), 'cantidad_registros'],
+        [fn('SUM', col('cantidad')), 'total_producido']
+      ],
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      },
+      group: ['tipo'],
+      order: [['tipo', 'ASC']]
+    });
+
+    const totalRegistrosMes = await Produccion.count({
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      }
+    });
+
+    const totalProduccionMes = await Produccion.sum('cantidad', {
+      where: {
+        fecha: {
+          [Op.between]: [inicioMes, finMes]
+        }
+      }
+    });
+
+    const promedioProduccion = totalRegistrosMes > 0
+      ? Number(totalProduccionMes || 0) / totalRegistrosMes
+      : 0;
+
+    return ok(res, 'Métricas de producción del mes obtenidas correctamente', {
       periodo: {
         inicioMes,
         finMes
       },
       resumen: {
-        totalUsuarios,
-        totalGanado,
-        totalProductos,
-        totalPotreros,
-        totalVentas,
-        ventasMes,
-        sesionesActivas,
-        eventosSanitariosMes,
-        totalProduccionMes
-      }
+        totalRegistrosMes,
+        totalProduccionMes: Number(totalProduccionMes || 0),
+        promedioProduccion
+      },
+      produccionPorDia: produccionPorDia.map((p) => ({
+        fecha: p.fecha,
+        cantidadRegistros: Number(p.get('cantidad_registros') || 0),
+        totalProducido: Number(p.get('total_producido') || 0)
+      })),
+      produccionPorTipo: produccionPorTipo.map((p) => ({
+        tipo: p.tipo,
+        cantidadRegistros: Number(p.get('cantidad_registros') || 0),
+        totalProducido: Number(p.get('total_producido') || 0)
+      }))
     }, 200);
   } catch (error) {
-  console.error('Dashboard.resumen ERROR REAL:', error);
-  return res.status(500).json({
-    ok: false,
-    mensaje: error.message,
-    data: null,
-    errores: null
-  });
+    console.error('Dashboard.produccionMes:', error);
+    return next(error);
+  }
 }
+
+async function stockBajo(req, res, next) {
+  try {
+    const productosActivos = await Producto.findAll({
+      where: {
+        activo: true
+      },
+      attributes: [
+        'id',
+        'nombre',
+        'tipo',
+        'categoria',
+        'unidad',
+        'cantidad_actual',
+        'cantidad_min',
+        'estado'
+      ],
+      order: [['nombre', 'ASC']]
+    });
+
+    const productosCriticos = productosActivos
+      .filter((p) => Number(p.cantidad_actual) <= Number(p.cantidad_min))
+      .map((p) => {
+        const actual = Number(p.cantidad_actual || 0);
+        const minimo = Number(p.cantidad_min || 0);
+
+        let nivelAlerta = 'Normal';
+
+        if (actual <= 0) {
+          nivelAlerta = 'Agotado';
+        } else if (actual <= minimo * 0.5) {
+          nivelAlerta = 'Crítico';
+        } else if (actual <= minimo) {
+          nivelAlerta = 'Bajo';
+        }
+
+        return {
+          id: p.id,
+          nombre: p.nombre,
+          tipo: p.tipo,
+          categoria: p.categoria,
+          unidad: p.unidad,
+          cantidadActual: actual,
+          cantidadMinima: minimo,
+          estado: p.estado,
+          nivelAlerta
+        };
+      });
+
+    const totalProductosActivos = productosActivos.length;
+    const totalStockBajo = productosCriticos.length;
+    const totalAgotados = productosCriticos.filter((p) => p.cantidadActual <= 0).length;
+
+    return ok(res, 'Productos con stock bajo obtenidos correctamente', {
+      resumen: {
+        totalProductosActivos,
+        totalStockBajo,
+        totalAgotados
+      },
+      productos: productosCriticos
+    }, 200);
+  } catch (error) {
+    console.error('Dashboard.stockBajo:', error);
+    return next(error);
+  }
 }
 
 module.exports = {
-  resumen
+  resumen,
+  ventasMes,
+  produccionMes,
+  stockBajo
 };

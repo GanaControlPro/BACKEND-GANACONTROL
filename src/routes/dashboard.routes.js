@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { resumen } = require('../controllers/dashboard.controller');
+const { resumen, ventasMes, produccionMes, stockBajo } = require('../controllers/dashboard.controller');
 const { authJwt } = require('../middlewares/authJwt');
 const { can } = require('../middlewares/can');
 
@@ -22,6 +22,27 @@ router.get(
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
   ensureFn(resumen, 'resumen')
+);
+
+router.get(
+  '/ventas-mes',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
+  ensureFn(ventasMes, 'ventasMes')
+);
+
+router.get(
+  '/produccion-mes',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
+  ensureFn(produccionMes, 'produccionMes')
+);
+
+router.get(
+  '/stock-bajo',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
+  ensureFn(stockBajo, 'stockBajo')
 );
 
 module.exports = router;
