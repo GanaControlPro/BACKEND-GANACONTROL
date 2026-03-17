@@ -18,6 +18,7 @@ router.use('/auth', require('./auth.routes'));
 router.use('/roles', require('./rol.routes'));
 router.use('/usuarios', require('./usuario.routes'));
 router.use('/logs', require('./logActividad.routes'));
+router.use('/dashboard', require('./dashboard.routes'));
 
 /*
 |--------------------------------------------------------------------------
