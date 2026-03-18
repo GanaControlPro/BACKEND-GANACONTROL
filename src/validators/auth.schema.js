@@ -29,49 +29,6 @@ const loginSchema = Joi.object({
     })
 });
 
-const registerSchema = Joi.object({
-  nombres: Joi.string()
-    .trim()
-    .max(100)
-    .required()
-    .messages({
-      'string.empty': 'Los nombres son obligatorios',
-      'any.required': 'Los nombres son obligatorios'
-    }),
-
-  apellidos: Joi.string()
-    .trim()
-    .max(100)
-    .required()
-    .messages({
-      'string.empty': 'Los apellidos son obligatorios',
-      'any.required': 'Los apellidos son obligatorios'
-    }),
-
-  correo: Joi.string()
-    .email()
-    .trim()
-    .lowercase()
-    .max(150)
-    .required()
-    .messages({
-      'string.email': 'El correo debe tener un formato válido',
-      'string.empty': 'El correo es obligatorio',
-      'any.required': 'El correo es obligatorio'
-    }),
-
-  contrasena: Joi.string()
-    .min(6)
-    .max(100)
-    .required()
-    .messages({
-      'string.empty': 'La contraseña es obligatoria',
-      'string.min': 'La contraseña debe tener mínimo 6 caracteres',
-      'any.required': 'La contraseña es obligatoria'
-    })
-});
-
-
 /* ===============================
    REFRESH TOKEN
 ================================ */
@@ -158,7 +115,6 @@ const resetPasswordSchema = Joi.object({
 ================================ */
 module.exports = {
   loginSchema,
-  registerSchema,
   refreshSchema,
   logoutSchema,
   googleLoginSchema,
