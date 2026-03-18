@@ -2,6 +2,7 @@ const router = require('express').Router();
 
 const {
   login,
+  register, 
   me,
   refresh,
   logout,
@@ -14,6 +15,7 @@ const {
 
 const {
   loginLimiter,
+  registerSchema,
   refreshLimiter,
   forgotPasswordLimiter,
   resetPasswordLimiter,
