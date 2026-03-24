@@ -3,9 +3,9 @@ const { authJwt } = require('../middlewares/authJwt');
 const { can } = require('../middlewares/can');
 const { validate } = require('../validators');
 const { crearGanadoSchema, actualizarGanadoSchema } = require('../validators/ganado.schema');
+const uploadGanado = require('../middlewares/uploadGanado');
 const c = require('../controllers/ganado.controller');
 
-// Anti "argument handler must be a function"
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
     throw new Error(`Handler inválido: ${name} no es función`);
@@ -20,7 +20,6 @@ const ensureMw = (mw, name) => {
   return mw;
 };
 
-// Health
 router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'ganado' }));
 
 router.get(
@@ -41,6 +40,7 @@ router.post(
   '/',
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('ganado.crear'), "can('ganado.crear')"),
+  uploadGanado.single('foto'),
   ensureMw(validate(crearGanadoSchema), 'validate(crearGanadoSchema)'),
   ensureFn(c.crear, 'c.crear')
 );
@@ -49,6 +49,7 @@ router.put(
   '/:id',
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('ganado.editar'), "can('ganado.editar')"),
+  uploadGanado.single('foto'),
   ensureMw(validate(actualizarGanadoSchema), 'validate(actualizarGanadoSchema)'),
   ensureFn(c.actualizar, 'c.actualizar')
 );

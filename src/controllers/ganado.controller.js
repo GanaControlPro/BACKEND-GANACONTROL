@@ -12,6 +12,32 @@ function requireUser(req, res) {
   return true;
 }
 
+function normalizarPayload(req) {
+  const payload = { ...req.body };
+
+  if (req.file) {
+    payload.foto_url = `/uploads/ganado/${req.file.filename}`;
+  }
+
+  if (payload.es_reproductor !== undefined) {
+    payload.es_reproductor =
+      payload.es_reproductor === true ||
+      payload.es_reproductor === 'true' ||
+      payload.es_reproductor === 1 ||
+      payload.es_reproductor === '1';
+  }
+
+  if (payload.numero_partos !== undefined && payload.numero_partos !== '') {
+    payload.numero_partos = Number(payload.numero_partos);
+  }
+
+  if (payload.peso_actual !== undefined && payload.peso_actual !== '') {
+    payload.peso_actual = Number(payload.peso_actual);
+  }
+
+  return payload;
+}
+
 async function listar(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
@@ -79,8 +105,10 @@ async function crear(req, res, next) {
       });
     }
 
+    const payload = normalizarPayload(req);
+
     const row = await Ganado.create({
-      ...req.body,
+      ...payload,
       finca_id: req.user.finca_id
     });
 
@@ -130,7 +158,9 @@ async function actualizar(req, res, next) {
       });
     }
 
-    const [n] = await Ganado.update(req.body, {
+    const payload = normalizarPayload(req);
+
+    const [n] = await Ganado.update(payload, {
       where: {
         id,
         finca_id: req.user.finca_id
