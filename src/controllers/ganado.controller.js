@@ -1,18 +1,15 @@
-const { Ganado } = require('../models');
-const { ok, fail } = require('../utils/response');
+const { Ganado } = require("../models");
+const { ok, fail } = require("../utils/response");
 
-function requireUser(req, res) {
+const requireUser = (req, res) => {
   if (!req.user || !req.user.finca_id) {
-    fail(res, {
-      code: 401,
-      mensaje: 'No autorizado: falta usuario/finca'
-    });
+    fail(res, "No autorizado: falta usuario o finca", ["Usuario no autenticado o sin finca asignada"], 401);
     return false;
   }
   return true;
-}
+};
 
-function normalizarPayload(req) {
+const normalizarPayload = (req) => {
   const payload = { ...req.body };
 
   if (req.file) {
@@ -22,231 +19,197 @@ function normalizarPayload(req) {
   if (payload.es_reproductor !== undefined) {
     payload.es_reproductor =
       payload.es_reproductor === true ||
-      payload.es_reproductor === 'true' ||
+      payload.es_reproductor === "true" ||
       payload.es_reproductor === 1 ||
-      payload.es_reproductor === '1';
+      payload.es_reproductor === "1";
   }
 
-  if (payload.numero_partos !== undefined && payload.numero_partos !== '') {
+  if (payload.numero_partos !== undefined && payload.numero_partos !== "") {
     payload.numero_partos = Number(payload.numero_partos);
   }
 
-  if (payload.peso_actual !== undefined && payload.peso_actual !== '') {
+  if (payload.peso_actual !== undefined && payload.peso_actual !== "") {
     payload.peso_actual = Number(payload.peso_actual);
   }
 
   return payload;
-}
+};
 
-async function listar(req, res, next) {
+const manejarErrorSequelize = (error, res) => {
+  if (
+    error?.name === "SequelizeValidationError" ||
+    error?.name === "SequelizeUniqueConstraintError"
+  ) {
+    return fail(
+      res,
+      "Validación fallida",
+      error.errors?.map((x) => ({
+        campo: x.path,
+        mensaje: x.message,
+      })) || [],
+      400
+    );
+  }
+
+  return null;
+};
+
+const listar = async (req, res, next) => {
   try {
     if (!requireUser(req, res)) return;
 
-    const rows = await Ganado.findAll({
+    const data = await Ganado.findAll({
       where: { finca_id: req.user.finca_id },
-      order: [['id', 'DESC']]
+      order: [["id", "DESC"]],
     });
 
-    return ok(res, {
-      mensaje: 'Listado OK',
-      data: rows
-    });
-  } catch (e) {
-    console.error('Ganado.listar:', e);
-    return next(e);
+    return ok(res, "Listado de ganado obtenido correctamente", data);
+  } catch (error) {
+    console.error("Ganado.listar:", error);
+    return next(error);
   }
-}
+};
 
-async function obtenerPorId(req, res, next) {
+const obtenerPorId = async (req, res, next) => {
   try {
     if (!requireUser(req, res)) return;
 
     const { id } = req.params;
 
     if (!id) {
-      return fail(res, {
-        code: 400,
-        mensaje: 'El parámetro id es obligatorio'
-      });
+      return fail(res, "El parámetro id es obligatorio", ["id requerido"], 400);
     }
 
-    const row = await Ganado.findOne({
+    const data = await Ganado.findOne({
       where: {
         id,
-        finca_id: req.user.finca_id
-      }
+        finca_id: req.user.finca_id,
+      },
     });
 
-    if (!row) {
-      return fail(res, {
-        code: 404,
-        mensaje: 'Ganado no encontrado'
-      });
+    if (!data) {
+      return fail(res, "Ganado no encontrado", ["No existe un registro con ese id en la finca del usuario"], 404);
     }
 
-    return ok(res, {
-      mensaje: 'Ganado encontrado',
-      data: row
-    });
-  } catch (e) {
-    console.error('Ganado.obtenerPorId:', e);
-    return next(e);
+    return ok(res, "Registro de ganado obtenido correctamente", data);
+  } catch (error) {
+    console.error("Ganado.obtenerPorId:", error);
+    return next(error);
   }
-}
+};
 
-async function crear(req, res, next) {
+const crear = async (req, res, next) => {
   try {
     if (!requireUser(req, res)) return;
 
-    if (!req.body || Object.keys(req.body).length === 0) {
-      return fail(res, {
-        code: 400,
-        mensaje: 'El body es obligatorio'
-      });
+    const bodyVacio =
+      !req.body || Object.keys(req.body).length === 0;
+
+    const sinArchivo = !req.file;
+
+    if (bodyVacio && sinArchivo) {
+      return fail(res, "El body es obligatorio", ["Debe enviar datos"], 400);
     }
 
     const payload = normalizarPayload(req);
 
-    const row = await Ganado.create({
+    const data = await Ganado.create({
       ...payload,
-      finca_id: req.user.finca_id
+      finca_id: req.user.finca_id,
     });
 
-    return ok(res, {
-      code: 201,
-      mensaje: 'Ganado creado',
-      data: row
-    });
-  } catch (e) {
-    console.error('Ganado.crear:', e);
+    return ok(res, "Registro de ganado creado correctamente", data, 201);
+  } catch (error) {
+    console.error("Ganado.crear:", error);
 
-    if (
-      e?.name === 'SequelizeValidationError' ||
-      e?.name === 'SequelizeUniqueConstraintError'
-    ) {
-      return fail(res, {
-        code: 400,
-        mensaje: e.message,
-        errores: e.errors?.map((x) => ({
-          campo: x.path,
-          mensaje: x.message
-        })) ?? []
-      });
-    }
+    const errorControlado = manejarErrorSequelize(error, res);
+    if (errorControlado) return errorControlado;
 
-    return next(e);
+    return next(error);
   }
-}
+};
 
-async function actualizar(req, res, next) {
+const actualizar = async (req, res, next) => {
   try {
     if (!requireUser(req, res)) return;
 
     const { id } = req.params;
 
     if (!id) {
-      return fail(res, {
-        code: 400,
-        mensaje: 'El parámetro id es obligatorio'
-      });
+      return fail(res, "El parámetro id es obligatorio", ["id requerido"], 400);
     }
 
-    if (!req.body || Object.keys(req.body).length === 0) {
-      return fail(res, {
-        code: 400,
-        mensaje: 'El body es obligatorio'
-      });
+    const bodyVacio =
+      !req.body || Object.keys(req.body).length === 0;
+
+    const sinArchivo = !req.file;
+
+    if (bodyVacio && sinArchivo) {
+      return fail(res, "El body es obligatorio", ["Debe enviar datos"], 400);
+    }
+
+    const existente = await Ganado.findOne({
+      where: {
+        id,
+        finca_id: req.user.finca_id,
+      },
+    });
+
+    if (!existente) {
+      return fail(res, "Ganado no encontrado", ["No existe un registro con ese id en la finca del usuario"], 404);
     }
 
     const payload = normalizarPayload(req);
 
-    const [n] = await Ganado.update(payload, {
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
+    await existente.update(payload);
 
-    if (!n) {
-      return fail(res, {
-        code: 404,
-        mensaje: 'No encontrado'
-      });
-    }
+    return ok(res, "Registro de ganado actualizado correctamente", existente);
+  } catch (error) {
+    console.error("Ganado.actualizar:", error);
 
-    const row = await Ganado.findOne({
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
+    const errorControlado = manejarErrorSequelize(error, res);
+    if (errorControlado) return errorControlado;
 
-    return ok(res, {
-      mensaje: 'Ganado actualizado',
-      data: row
-    });
-  } catch (e) {
-    console.error('Ganado.actualizar:', e);
-
-    if (
-      e?.name === 'SequelizeValidationError' ||
-      e?.name === 'SequelizeUniqueConstraintError'
-    ) {
-      return fail(res, {
-        code: 400,
-        mensaje: e.message,
-        errores: e.errors?.map((x) => ({
-          campo: x.path,
-          mensaje: x.message
-        })) ?? []
-      });
-    }
-
-    return next(e);
+    return next(error);
   }
-}
+};
 
-async function eliminar(req, res, next) {
+const eliminar = async (req, res, next) => {
   try {
     if (!requireUser(req, res)) return;
 
     const { id } = req.params;
 
     if (!id) {
-      return fail(res, {
-        code: 400,
-        mensaje: 'El parámetro id es obligatorio'
-      });
+      return fail(res, "El parámetro id es obligatorio", ["id requerido"], 400);
     }
 
-    const n = await Ganado.destroy({
+    const existente = await Ganado.findOne({
       where: {
         id,
-        finca_id: req.user.finca_id
-      }
+        finca_id: req.user.finca_id,
+      },
     });
 
-    if (!n) {
-      return fail(res, {
-        code: 404,
-        mensaje: 'No encontrado'
-      });
+    if (!existente) {
+      return fail(res, "Ganado no encontrado", ["No existe un registro con ese id en la finca del usuario"], 404);
     }
 
-    return ok(res, {
-      mensaje: 'Ganado eliminado',
-      data: { id: Number(id) }
+    await existente.destroy();
+
+    return ok(res, "Registro de ganado eliminado correctamente", {
+      id: Number(id),
     });
-  } catch (e) {
-    console.error('Ganado.eliminar:', e);
-    return next(e);
+  } catch (error) {
+    console.error("Ganado.eliminar:", error);
+    return next(error);
   }
-}
+};
 
 module.exports = {
   listar,
   obtenerPorId,
   crear,
   actualizar,
-  eliminar
+  eliminar,
 };
