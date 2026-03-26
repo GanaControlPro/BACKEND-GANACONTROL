@@ -26,5 +26,14 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false
   });
 
+  Permiso.associate = (models) => {
+    Permiso.belongsToMany(models.Rol, {
+      through: 'rol_permiso',
+      foreignKey: 'permiso_id',
+      otherKey: 'rol_id',
+      as: 'roles'
+    });
+  };
+
   return Permiso;
 };

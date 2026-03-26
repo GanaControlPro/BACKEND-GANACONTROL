@@ -4,7 +4,6 @@ const { authJwt } = require('../middlewares/authJwt');
 const { authorize } = require('../middlewares/authorize');
 const controller = require('../controllers/alimentacion.controller');
 
-// Helpers para evitar "argument handler must be a function"
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
     throw new Error(`Handler inválido: ${name} no es función`);
@@ -19,13 +18,12 @@ const ensureMw = (mw, name) => {
   return mw;
 };
 
-// Protege todo el módulo
 router.use(ensureMw(authJwt, 'authJwt'));
 
-// Health (útil para probar que el router monta)
-router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'alimentacion' }));
+router.get('/ping', (req, res) => {
+  res.json({ ok: true, modulo: 'alimentacion' });
+});
 
-// Rutas
 router.get(
   '/',
   ensureMw(authorize(['Administrador', 'Operario', 'Veterinario']), 'authorize(listar)'),
