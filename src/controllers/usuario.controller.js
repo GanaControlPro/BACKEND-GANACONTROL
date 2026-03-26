@@ -49,7 +49,7 @@ const actualizar = async (req, res, next) => {
 
 const eliminar = async (req, res, next) => {
   try {
-    const data = await service.eliminar(req.params.id);
+    const data = await service.eliminar(req.params.id, req.user);
 
     if (!data) {
       return fail(res, 'Usuario no encontrado', null, 404);

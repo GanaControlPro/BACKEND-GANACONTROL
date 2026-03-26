@@ -99,12 +99,37 @@ class UsuarioService {
     });
   }
 
-  async eliminar(id) {
-    const usuario = await Usuario.findByPk(id);
-    if (!usuario) return null;
+  async eliminar(id, usuarioActual) {
+  const usuario = await Usuario.findByPk(id, {
+    include: [{ model: Rol, as: 'rol' }]
+  });
 
-    await usuario.destroy();
-    return true;
+  if (!usuario) return null;
+
+  // ❌ No eliminarse a sí mismo
+  if (usuario.id === usuarioActual.id) {
+    throw new Error('No puedes eliminar tu propio usuario');
+  }
+
+  // ❌ No eliminar el último administrador
+  if (usuario.rol?.nombre === 'Administrador') {
+    const totalAdmins = await Usuario.count({
+      include: [
+        {
+          model: Rol,
+          as: 'rol',
+          where: { nombre: 'Administrador' }
+        }
+      ]
+    });
+
+    if (totalAdmins <= 1) {
+      throw new Error('No se puede eliminar el último administrador del sistema');
+    }
+  }
+
+  await usuario.destroy();
+  return true;
   }
 }
 
