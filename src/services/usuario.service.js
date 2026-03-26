@@ -58,7 +58,10 @@ class UsuarioService {
   }
 
   async actualizar(id, data) {
-    const usuario = await Usuario.findByPk(id);
+    const usuario = await Usuario.findByPk(id, {
+      include: [{ model: Rol, as: 'rol' }]
+    });
+
     if (!usuario) return null;
 
     if (data.rol_id) {
@@ -81,6 +84,15 @@ class UsuarioService {
       });
       if (existeCorreo) {
         throw new Error('El correo ya está registrado');
+      }
+    }
+
+    // ✅ Bloquear desactivación de administradores
+    if (typeof data.activo !== 'undefined') {
+      const quiereDesactivar = data.activo === false || data.activo === 0 || data.activo === 'false';
+
+      if (usuario.rol?.nombre === 'Administrador' && quiereDesactivar) {
+        throw new Error('El usuario administrador no se puede desactivar');
       }
     }
 
