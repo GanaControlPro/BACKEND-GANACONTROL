@@ -2,26 +2,15 @@ const express = require('express');
 const router = express.Router();
 
 const controller = require('../controllers/detalleVentaGanado.controller');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authJwt } = require('../middlewares/authJwt');
+const { can } = require('../middlewares/can');
 
-// proteger todas las rutas con autenticación
-router.use(authMiddleware);
+router.use(authJwt);
 
-// ===== CRUD DETALLE VENTA GANADO =====
-
-// obtener todos los detalles
-router.get('/', controller.getAll);
-
-// obtener un detalle por id
-router.get('/:id', controller.getById);
-
-// crear nuevo detalle
-router.post('/', controller.create);
-
-// actualizar detalle
-router.put('/:id', controller.update);
-
-// eliminar detalle
-router.delete('/:id', controller.remove);
+router.get('/', can('ventas.ver'), controller.getAll);
+router.get('/:id', can('ventas.ver'), controller.getById);
+router.post('/', can('ventas.crear'), controller.create);
+router.put('/:id', can('ventas.editar'), controller.update);
+router.delete('/:id', can('ventas.eliminar'), controller.remove);
 
 module.exports = router;

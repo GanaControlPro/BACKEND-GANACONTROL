@@ -1,10 +1,7 @@
 const router = require('express').Router();
-
+const c = require('../controllers/ventas.controller');
 const { authJwt } = require('../middlewares/authJwt');
 const { can } = require('../middlewares/can');
-const { validate } = require('../validators');
-const { crearVentaSchema } = require('../validators/ventas.schema');
-const c = require('../controllers/ventas.controller');
 
 const ensureFn = (fn, name) => {
   if (typeof fn !== 'function') {
@@ -20,7 +17,26 @@ const ensureMw = (mw, name) => {
   return mw;
 };
 
-router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'ventas' }));
+router.get(
+  '/kpis',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.ver'), "can('ventas.ver')"),
+  ensureFn(c.kpis, 'ventasController.kpis')
+);
+
+router.get(
+  '/resumen-hero',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.ver'), "can('ventas.ver')"),
+  ensureFn(c.resumenHero, 'ventasController.resumenHero')
+);
+
+router.get(
+  '/crecimiento',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('ventas.ver'), "can('ventas.ver')"),
+  ensureFn(c.crecimiento, 'ventasController.crecimiento')
+);
 
 router.get(
   '/',
@@ -33,14 +49,13 @@ router.get(
   '/:id',
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('ventas.ver'), "can('ventas.ver')"),
-  ensureFn(c.detalle, 'ventasController.detalle')
+  ensureFn(c.obtenerPorId, 'ventasController.obtenerPorId')
 );
 
 router.post(
   '/',
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('ventas.crear'), "can('ventas.crear')"),
-  ensureMw(validate(crearVentaSchema), 'validate(crearVentaSchema)'),
   ensureFn(c.crear, 'ventasController.crear')
 );
 

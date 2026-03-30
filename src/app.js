@@ -46,6 +46,8 @@ app.get('/health', (req, res) => {
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+app.use('/api/ventas', require('./routes/cockpit.routes'));
+
 app.use('/api', routes);
 
 app.use((req, res) => {

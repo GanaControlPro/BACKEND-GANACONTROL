@@ -1,20 +1,30 @@
-const { crearVenta } = require('../services/ventas.service');
-const { ok, fail } = require('../utils/response');
 const {
-  Venta,
-  DetalleVentaGanado,
-  DetalleVentaProducto
-} = require('../models');
+  crearVenta,
+  actualizarVentaCompleta,
+  obtenerKPIs,
+  obtenerTransaccionPorId,
+  eliminarVenta,
+  obtenerResumenHero,
+  obtenerCrecimiento,
+} = require('../services/ventas.service');
+
+const { ok, fail } = require('../utils/response');
+const { Venta } = require('../models');
 
 function requireUser(req, res) {
   if (!req.user || !req.user.finca_id) {
     fail(res, {
       code: 401,
-      mensaje: 'No autorizado: falta usuario/finca'
+      mensaje: 'No autorizado: falta usuario/finca',
     });
     return false;
   }
   return true;
+}
+
+function validarId(id) {
+  const num = Number(id);
+  return num && !Number.isNaN(num) ? num : null;
 }
 
 async function crear(req, res, next) {
@@ -24,19 +34,19 @@ async function crear(req, res, next) {
     if (!req.body || Object.keys(req.body).length === 0) {
       return fail(res, {
         code: 400,
-        mensaje: 'El body es obligatorio'
+        mensaje: 'El body es obligatorio',
       });
     }
 
     const venta = await crearVenta({
       finca_id: req.user.finca_id,
-      ...req.body
+      ...req.body,
     });
 
     return ok(res, {
       code: 201,
-      mensaje: 'Venta creada',
-      data: venta
+      mensaje: 'Venta creada correctamente',
+      data: venta,
     });
   } catch (e) {
     console.error('Ventas.crear:', e);
@@ -45,7 +55,8 @@ async function crear(req, res, next) {
     if (code && Number(code) >= 400 && Number(code) < 600) {
       return fail(res, {
         code: Number(code),
-        mensaje: e.message || 'Error'
+        mensaje: e.message || 'Error al crear la venta',
+        errores: e.errores || [],
       });
     }
 
@@ -59,12 +70,12 @@ async function listar(req, res, next) {
 
     const rows = await Venta.findAll({
       where: { finca_id: req.user.finca_id },
-      order: [['id', 'DESC']]
+      order: [['fecha', 'DESC'], ['id', 'DESC']],
     });
 
     return ok(res, {
       mensaje: 'Listado OK',
-      data: rows
+      data: rows,
     });
   } catch (e) {
     console.error('Ventas.listar:', e);
@@ -76,39 +87,26 @@ async function detalle(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
 
-    const id = Number(req.params.id);
-    if (!id || Number.isNaN(id)) {
+    const id = validarId(req.params.id);
+    if (!id) {
       return fail(res, {
         code: 400,
-        mensaje: 'El parámetro id es inválido'
+        mensaje: 'El parámetro id es inválido',
       });
     }
 
-    const venta = await Venta.findOne({
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
+    const venta = await obtenerTransaccionPorId(id, req.user.finca_id);
 
     if (!venta) {
       return fail(res, {
         code: 404,
-        mensaje: 'No encontrada'
+        mensaje: 'Venta no encontrada',
       });
     }
 
-    const ganado = await DetalleVentaGanado.findAll({
-      where: { venta_id: id }
-    });
-
-    const productos = await DetalleVentaProducto.findAll({
-      where: { venta_id: id }
-    });
-
     return ok(res, {
       mensaje: 'Detalle OK',
-      data: { venta, ganado, productos }
+      data: venta,
     });
   } catch (e) {
     console.error('Ventas.detalle:', e);
@@ -116,55 +114,49 @@ async function detalle(req, res, next) {
   }
 }
 
-// Alias para mantener compatibilidad con rutas tipo obtenerPorId
 const obtenerPorId = detalle;
 
 async function actualizar(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
 
-    const id = Number(req.params.id);
-    if (!id || Number.isNaN(id)) {
+    const id = validarId(req.params.id);
+    if (!id) {
       return fail(res, {
         code: 400,
-        mensaje: 'El parámetro id es inválido'
+        mensaje: 'El parámetro id es inválido',
       });
     }
 
     if (!req.body || Object.keys(req.body).length === 0) {
       return fail(res, {
         code: 400,
-        mensaje: 'El body es obligatorio'
+        mensaje: 'El body es obligatorio',
       });
     }
 
-    const [n] = await Venta.update(req.body, {
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
-
-    if (!n) {
-      return fail(res, {
-        code: 404,
-        mensaje: 'Venta no encontrada'
-      });
-    }
-
-    const row = await Venta.findOne({
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
+    const ventaActualizada = await actualizarVentaCompleta(
+      id,
+      req.user.finca_id,
+      req.body
+    );
 
     return ok(res, {
-      mensaje: 'Venta actualizada',
-      data: row
+      mensaje: 'Venta actualizada correctamente',
+      data: ventaActualizada,
     });
   } catch (e) {
     console.error('Ventas.actualizar:', e);
+
+    const code = e?.status || e?.code;
+    if (code && Number(code) >= 400 && Number(code) < 600) {
+      return fail(res, {
+        code: Number(code),
+        mensaje: e.message || 'Error al actualizar la venta',
+        errores: e.errores || [],
+      });
+    }
+
     return next(e);
   }
 }
@@ -173,50 +165,100 @@ async function eliminar(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
 
-    const id = Number(req.params.id);
-    if (!id || Number.isNaN(id)) {
+    const id = validarId(req.params.id);
+    if (!id) {
       return fail(res, {
         code: 400,
-        mensaje: 'El parámetro id es inválido'
+        mensaje: 'El parámetro id es inválido',
       });
     }
 
-    const venta = await Venta.findOne({
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
+    const deleted = await eliminarVenta(id, req.user.finca_id);
 
-    if (!venta) {
+    if (!deleted) {
       return fail(res, {
         code: 404,
-        mensaje: 'Venta no encontrada'
+        mensaje: 'Venta no encontrada',
       });
     }
 
-    await DetalleVentaGanado.destroy({
-      where: { venta_id: id }
-    });
-
-    await DetalleVentaProducto.destroy({
-      where: { venta_id: id }
-    });
-
-    await Venta.destroy({
-      where: {
-        id,
-        finca_id: req.user.finca_id
-      }
-    });
-
     return ok(res, {
-      mensaje: 'Venta eliminada',
-      data: { id }
+      mensaje: 'Venta eliminada correctamente',
+      data: { id },
     });
   } catch (e) {
     console.error('Ventas.eliminar:', e);
     return next(e);
+  }
+}
+
+async function kpis(req, res) {
+  try {
+    if (!requireUser(req, res)) return;
+
+    const finca_id = req.user.finca_id;
+    const data = await obtenerKPIs(finca_id);
+
+    return res.json({
+      ok: true,
+      data,
+    });
+  } catch (e) {
+    console.error('Ventas.kpis:', e);
+
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error obteniendo KPIs',
+      errores: [],
+    });
+  }
+}
+
+async function resumenHero(req, res) {
+  try {
+    if (!requireUser(req, res)) return;
+
+    const data = await obtenerResumenHero(req.user.finca_id);
+
+    return res.json({
+      ok: true,
+      data,
+    });
+  } catch (e) {
+    console.error('Ventas.resumenHero:', e);
+
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error obteniendo resumen hero',
+      errores: [],
+    });
+  }
+}
+
+async function crecimiento(req, res) {
+  try {
+    if (!requireUser(req, res)) return;
+
+    const finca_id = req.user.finca_id;
+    const periodosValidos = ['Semana', 'Mes', 'Año'];
+    const periodo = periodosValidos.includes(req.query.periodo)
+      ? req.query.periodo
+      : 'Semana';
+
+    const data = await obtenerCrecimiento(finca_id, periodo);
+
+    return res.json({
+      ok: true,
+      data,
+    });
+  } catch (e) {
+    console.error('Ventas.crecimiento:', e);
+
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error obteniendo crecimiento',
+      errores: [],
+    });
   }
 }
 
@@ -226,5 +268,8 @@ module.exports = {
   detalle,
   obtenerPorId,
   actualizar,
-  eliminar
+  eliminar,
+  kpis,
+  resumenHero,
+  crecimiento,
 };
