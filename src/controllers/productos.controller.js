@@ -12,6 +12,31 @@ function requireUser(req, res) {
   return true;
 }
 
+function calcularEstadoInventario(producto) {
+  const actual = Number(producto.cantidad_actual || 0);
+  const min = Number(producto.cantidad_min || 0);
+
+  if (actual <= 0) return 'agotado';
+
+  const porcentaje = min > 0 ? (actual / min) * 100 : 100;
+
+  if (porcentaje <= 25) return 'critico';
+  if (porcentaje < 50) return 'stock_bajo';
+
+  return 'en_stock';
+}
+
+function agregarEstadoInventario(producto) {
+  if (!producto) return producto;
+
+  const data = producto.toJSON ? producto.toJSON() : producto;
+
+  return {
+    ...data,
+    estado_inventario: calcularEstadoInventario(data)
+  };
+}
+
 async function listar(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
@@ -21,9 +46,11 @@ async function listar(req, res, next) {
       order: [['id', 'DESC']]
     });
 
+    const data = rows.map(agregarEstadoInventario);
+
     return ok(res, {
       mensaje: 'Listado OK',
-      data: rows
+      data
     });
   } catch (e) {
     console.error('Producto.listar:', e);
@@ -60,7 +87,7 @@ async function obtenerPorId(req, res, next) {
 
     return ok(res, {
       mensaje: 'Producto encontrado',
-      data: row
+      data: agregarEstadoInventario(row)
     });
   } catch (e) {
     console.error('Producto.obtenerPorId:', e);
@@ -87,7 +114,7 @@ async function crear(req, res, next) {
     return ok(res, {
       code: 201,
       mensaje: 'Producto creado',
-      data: row
+      data: agregarEstadoInventario(row)
     });
   } catch (e) {
     console.error('Producto.crear:', e);
@@ -153,7 +180,7 @@ async function actualizar(req, res, next) {
 
     return ok(res, {
       mensaje: 'Producto actualizado',
-      data: row
+      data: agregarEstadoInventario(row)
     });
   } catch (e) {
     console.error('Producto.actualizar:', e);
@@ -272,7 +299,7 @@ async function movimiento(req, res, next) {
     }
 
     const tipoNorm = String(tipo).toUpperCase();
-    const stockActual = Number(producto.stock ?? 0);
+    const stockActual = Number(producto.cantidad_actual ?? 0);
     const nuevoStock = tipoNorm === 'ENTRADA'
       ? stockActual + qty
       : stockActual - qty;
@@ -295,9 +322,7 @@ async function movimiento(req, res, next) {
       { transaction: t }
     );
 
-    if (Object.prototype.hasOwnProperty.call(producto.dataValues, 'stock')) {
-      await producto.update({ stock: nuevoStock }, { transaction: t });
-    }
+    await producto.update({ cantidad_actual: nuevoStock }, { transaction: t });
 
     await t.commit();
 
@@ -306,9 +331,14 @@ async function movimiento(req, res, next) {
       mensaje: 'Movimiento creado',
       data: {
         movimiento: mov,
-        producto: Object.prototype.hasOwnProperty.call(producto.dataValues, 'stock')
-          ? { id: producto.id, stock: nuevoStock }
-          : { id: producto.id }
+        producto: {
+          id: producto.id,
+          cantidad_actual: nuevoStock,
+          estado_inventario: calcularEstadoInventario({
+            cantidad_actual: nuevoStock,
+            cantidad_min: producto.cantidad_min
+          })
+        }
       }
     });
   } catch (e) {

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { resumen, ventasMes, produccionMes, stockBajo } = require('../controllers/dashboard.controller');
+const { resumen, ventasMes, produccionMes, stockBajo, alertas } = require('../controllers/dashboard.controller');
 const { authJwt } = require('../middlewares/authJwt');
 const { can } = require('../middlewares/can');
 
@@ -43,6 +43,13 @@ router.get(
   ensureMw(authJwt, 'authJwt'),
   ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
   ensureFn(stockBajo, 'stockBajo')
+);
+
+router.get(
+  '/alertas',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('dashboard.ver'), "can('dashboard.ver')"),
+  ensureFn(alertas, 'alertas')
 );
 
 module.exports = router;

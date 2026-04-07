@@ -37,12 +37,40 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
 
+    proveedor: {
+      type: DataTypes.STRING(150),
+      allowNull: true
+    },
+
     unidad: {
       type: DataTypes.STRING(30),
       allowNull: true,
       validate: {
         len: { args: [0, 30], msg: "unidad máximo 30 caracteres" }
       }
+    },
+
+    ubicacion: {
+      type: DataTypes.STRING(120),
+      allowNull: true
+    },
+
+    precio_unitario: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      validate: {
+        isDecimal: { msg: "precio_unitario debe ser decimal" }
+      }
+    },
+
+    notas: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+
+    fecha_registro: {
+      type: DataTypes.DATEONLY,
+      allowNull: true
     },
 
     cantidad_actual: {
@@ -76,14 +104,13 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: true
     }
-
   }, {
     tableName: 'producto',
     timestamps: false,
     indexes: [
       {
         unique: true,
-        fields: ['nombre', 'finca_id'] // UNIQUE(nombre,finca_id)
+        fields: ['nombre', 'finca_id']
       }
     ]
   });

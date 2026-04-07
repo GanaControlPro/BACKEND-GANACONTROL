@@ -24,42 +24,31 @@ function getFinMes() {
 
 async function resumen(req, res, next) {
   try {
+    const finca_id = req.user?.finca_id;
     const inicioMes = getInicioMes();
     const finMes = getFinMes();
+    const hoy = new Date();
+    const en7Dias = new Date();
+    en7Dias.setDate(hoy.getDate() + 7);
 
     const [
-      totalUsuarios,
       totalGanado,
-      totalProductos,
-      totalPotreros,
-      totalVentas,
-      ventasMes,
-      sesionesActivas,
-      eventosSanitariosMes,
-      produccionesMes
+      totalVendidoMes,
+      totalEventosMes,
+      productosActivos,
+      eventosProximos
     ] = await Promise.all([
-      Usuario.count({
-        where: { activo: true }
+      Ganado.count({
+        where: { finca_id }
       }),
 
-      Ganado.count(),
-
-      Producto.count(),
-
-      Potrero.count(),
-
-      Venta.count(),
-
-      Venta.count({
+      Venta.sum('total', {
         where: {
+          finca_id,
           fecha: {
             [Op.between]: [inicioMes, finMes]
           }
         }
-      }),
-
-      Sesion.count({
-        where: { revocada: false }
       }),
 
       EventoSanitario.count({
@@ -67,41 +56,87 @@ async function resumen(req, res, next) {
           fecha: {
             [Op.between]: [inicioMes, finMes]
           }
-        }
+        },
+        include: [
+          {
+            model: Ganado,
+            as: 'ganado',
+            attributes: [],
+            required: true,
+            where: { finca_id }
+          }
+        ]
       }),
 
-      Produccion.findAll({
-        attributes: ['cantidad'],
+      Producto.findAll({
+        where: {
+          finca_id,
+          estado: 'Activo'
+        },
+        attributes: ['cantidad_actual', 'cantidad_min']
+      }),
+
+      EventoSanitario.count({
         where: {
           fecha: {
-            [Op.between]: [inicioMes, finMes]
+            [Op.between]: [hoy, en7Dias]
           }
-        }
+        },
+        include: [
+          {
+            model: Ganado,
+            as: 'ganado',
+            attributes: [],
+            required: true,
+            where: { finca_id }
+          }
+        ]
       })
     ]);
 
-    const totalProduccionMes = produccionesMes.reduce((acc, item) => {
-      return acc + Number(item.cantidad || 0);
-    }, 0);
+    const totalStockBajo = productosActivos.filter(
+      (p) => Number(p.cantidad_actual) <= Number(p.cantidad_min)
+    ).length;
+
+    const alertasActivas = totalStockBajo + eventosProximos;
+
+    const tasaVacunacion = totalEventosMes > 0 ? 100 : 0;
 
     return ok(
       res,
       'Resumen del dashboard obtenido correctamente',
       {
-        periodo: {
-          inicioMes,
-          finMes
-        },
-        resumen: {
-          totalUsuarios,
-          totalGanado,
-          totalProductos,
-          totalPotreros,
-          totalVentas,
-          ventasMes,
-          sesionesActivas,
-          eventosSanitariosMes,
-          totalProduccionMes
+        kpis: {
+          ganadoTotal: {
+            label: 'Ganado Total',
+            value: totalGanado,
+            sub: 'Animales registrados actualmente',
+            trend: 'up',
+            barPct: totalGanado > 0 ? 85 : 0
+          },
+          alertasActivas: {
+            label: 'Alertas Activas',
+            value: alertasActivas,
+            sub: 'Requieren atención',
+            trend: alertasActivas > 0 ? 'down' : 'up',
+            barPct: Math.min(alertasActivas * 20, 100)
+          },
+          ingresosMes: {
+            label: 'Ingresos del mes',
+            value: Number(totalVendidoMes || 0),
+            sub: 'Ventas registradas en el mes actual',
+            trend: 'up',
+            barPct: totalVendidoMes > 0 ? 72 : 0
+          },
+          tasaVacunacion: {
+            label: 'Tasa Vacunación',
+            value: tasaVacunacion,
+            sub: totalEventosMes > 0
+              ? `${totalEventosMes} eventos sanitarios del mes`
+              : 'Sin eventos registrados este mes',
+            trend: 'up',
+            barPct: tasaVacunacion
+          }
         }
       },
       200
@@ -119,6 +154,7 @@ async function resumen(req, res, next) {
 
 async function ventasMes(req, res, next) {
   try {
+    const finca_id = req.user?.finca_id;
     const inicioMes = getInicioMes();
     const finMes = getFinMes();
 
@@ -129,6 +165,7 @@ async function ventasMes(req, res, next) {
         [fn('SUM', col('total')), 'total_vendido']
       ],
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -139,6 +176,7 @@ async function ventasMes(req, res, next) {
 
     const totalVentasMes = await Venta.count({
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -147,6 +185,7 @@ async function ventasMes(req, res, next) {
 
     const totalVendidoMes = await Venta.sum('total', {
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -187,6 +226,7 @@ async function ventasMes(req, res, next) {
 
 async function produccionMes(req, res, next) {
   try {
+    const finca_id = req.user?.finca_id;
     const inicioMes = getInicioMes();
     const finMes = getFinMes();
 
@@ -197,6 +237,7 @@ async function produccionMes(req, res, next) {
         [fn('SUM', col('cantidad')), 'total_producido']
       ],
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -212,6 +253,7 @@ async function produccionMes(req, res, next) {
         [fn('SUM', col('cantidad')), 'total_producido']
       ],
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -222,6 +264,7 @@ async function produccionMes(req, res, next) {
 
     const totalRegistrosMes = await Produccion.count({
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -230,6 +273,7 @@ async function produccionMes(req, res, next) {
 
     const totalProduccionMes = await Produccion.sum('cantidad', {
       where: {
+        finca_id,
         fecha: {
           [Op.between]: [inicioMes, finMes]
         }
@@ -269,9 +313,12 @@ async function produccionMes(req, res, next) {
 
 async function stockBajo(req, res, next) {
   try {
+    const finca_id = req.user?.finca_id;
+
     const productosActivos = await Producto.findAll({
       where: {
-        activo: true
+        finca_id,
+        estado: 'Activo'
       },
       attributes: [
         'id',
@@ -333,9 +380,98 @@ async function stockBajo(req, res, next) {
   }
 }
 
+async function alertas(req, res, next) {
+  try {
+    const finca_id = req.user?.finca_id;
+    const hoy = new Date();
+    const en7Dias = new Date();
+    en7Dias.setDate(hoy.getDate() + 7);
+
+    const productosActivos = await Producto.findAll({
+      where: {
+        finca_id,
+        estado: 'Activo'
+      },
+      attributes: [
+        'id',
+        'nombre',
+        'cantidad_actual',
+        'cantidad_min'
+      ],
+      order: [['cantidad_actual', 'ASC']]
+    });
+
+    const productosCriticos = productosActivos.filter(
+      (p) => Number(p.cantidad_actual) <= Number(p.cantidad_min)
+    );
+
+    const eventosProximos = await EventoSanitario.count({
+      where: {
+        fecha: {
+          [Op.between]: [hoy, en7Dias]
+        }
+      },
+      include: [
+        {
+          model: Ganado,
+          as: 'ganado',
+          attributes: [],
+          required: true,
+          where: { finca_id }
+        }
+      ]
+    });
+
+    const alertas = [];
+
+    if (productosCriticos.length > 0) {
+      const nombres = productosCriticos
+        .slice(0, 2)
+        .map((p) => p.nombre)
+        .join(' y ');
+
+      alertas.push({
+        tipo: 'warn',
+        titulo: 'Stock bajo',
+        desc: `${nombres} por debajo del mínimo.`,
+        href: '/inventario'
+      });
+    }
+
+    if (eventosProximos > 0) {
+      alertas.push({
+        tipo: 'info',
+        titulo: 'Vacunaciones pendientes',
+        desc: `${eventosProximos} eventos sanitarios próximos por atender.`,
+        href: '/eventos'
+      });
+    }
+
+    if (alertas.length === 0) {
+      alertas.push({
+        tipo: 'ok',
+        titulo: 'Todo en orden',
+        desc: 'No hay alertas activas por el momento.',
+        href: '/dashboard'
+      });
+    }
+
+    return ok(res, 'Alertas del dashboard obtenidas correctamente', alertas, 200);
+  } catch (error) {
+    console.error('Dashboard.alertas ERROR REAL:', error);
+    return res.status(500).json({
+      ok: false,
+      mensaje: error.message || 'Error en el servidor',
+      data: null,
+      errores: null
+    });
+  }
+}
+
 module.exports = {
   resumen,
   ventasMes,
   produccionMes,
-  stockBajo
+  stockBajo,
+  alertas
 };
