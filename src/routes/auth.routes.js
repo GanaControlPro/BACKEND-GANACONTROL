@@ -134,6 +134,7 @@ router.post(
 
 router.post(
   '/logout',
+  ensureMw(authJwt, 'authJwt'),
   ensureMw(validate(logoutSchema), 'validate(logoutSchema)'),
   ensureFn(logout, 'logout')
 );

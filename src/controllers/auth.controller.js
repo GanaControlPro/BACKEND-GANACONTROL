@@ -545,10 +545,12 @@ async function forgotPassword(req, res) {
   try {
     const { correo } = req.body || {};
 
+    if (!correo) {
+      return fail(res, 'El correo es obligatorio', null, 400);
+    }
+
     const user = await Usuario.findOne({
-      where: {
-        correo: normalizeEmail(correo)
-      }
+      where: { correo: normalizeEmail(correo) }
     });
 
     if (!user) {
@@ -572,11 +574,16 @@ async function forgotPassword(req, res) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    await sendResetPasswordMail({
-      to: user.correo,
-      resetLink,
-      userName: user.nombres
-    });
+    try {
+      await sendResetPasswordMail({
+        to: user.correo,
+        resetLink,
+        userName: user.nombres
+      });
+    } catch (mailError) {
+      console.error('Error SMTP forgotPassword:', mailError);
+      return fail(res, 'No se pudo enviar el correo de recuperación', null, 500);
+    }
 
     await registrarActividad({
       usuarioId: user?.id || null,
@@ -605,6 +612,10 @@ async function resetPassword(req, res) {
 
     if (!token || !nuevaContrasena) {
       return fail(res, 'Token y nueva contraseña son obligatorios', null, 400);
+    }
+
+    if (String(nuevaContrasena).length < 8) {
+      return fail(res, 'La nueva contraseña debe tener mínimo 8 caracteres', null, 400);
     }
 
     const tokenHash = hashResetToken(token);
