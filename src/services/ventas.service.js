@@ -440,25 +440,18 @@ async function obtenerResumenHero(finca_id) {
 
 async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
   const hoy = new Date();
-  const tipo = String(periodo || 'Semana')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
+  const tipo = String(periodo || 'Semana').toLowerCase();
   let dataBase = [];
 
   if (tipo === 'semana') {
     const inicioSemana = new Date(hoy);
-    const diaActual = inicioSemana.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
-    const diffLunes = diaActual === 0 ? 6 : diaActual - 1;
-
-    inicioSemana.setDate(inicioSemana.getDate() - diffLunes);
+    inicioSemana.setDate(hoy.getDate() - 6);
     inicioSemana.setHours(0, 0, 0, 0);
 
-    const finSemana = new Date(inicioSemana);
-    finSemana.setDate(inicioSemana.getDate() + 6);
+    const finSemana = new Date(hoy);
     finSemana.setHours(23, 59, 59, 999);
+
+    const claveHoy = toDateOnly(hoy);
 
     const ventas = await Venta.findAll({
       attributes: [
@@ -474,7 +467,7 @@ async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
       raw: true,
     });
 
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
     dataBase = Array.from({ length: 7 }, (_, i) => {
       const fecha = new Date(inicioSemana);
@@ -482,8 +475,9 @@ async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
 
       return {
         clave: toDateOnly(fecha),
-        label: dias[i],
+        label: dias[fecha.getDay()],
         valor: 0,
+        esActual: toDateOnly(fecha) === claveHoy,
       };
     });
 
@@ -493,16 +487,19 @@ async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
     });
   } else if (tipo === 'mes') {
     const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const mesActual = hoy.getMonth() + 1;
+    const anioActual = hoy.getFullYear();
 
     dataBase = Array.from({ length: 12 }, (_, i) => ({
-      year: hoy.getFullYear(),
+      year: anioActual,
       month: i + 1,
       label: mesesNombres[i],
       valor: 0,
+      esActual: i + 1 === mesActual,
     }));
 
-    const fechaInicio = new Date(hoy.getFullYear(), 0, 1, 0, 0, 0, 0);
-    const fechaFin = new Date(hoy.getFullYear(), 11, 31, 23, 59, 59, 999);
+    const fechaInicio = new Date(anioActual, 0, 1, 0, 0, 0, 0);
+    const fechaFin = new Date(anioActual, 11, 31, 23, 59, 59, 999);
 
     const ventas = await Venta.findAll({
       attributes: [
@@ -528,20 +525,21 @@ async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
       );
       if (item) item.valor = Number(v.total || 0);
     });
-  } else if (tipo === 'ano' || tipo === 'anio') {
+  } else {
     const anioActual = hoy.getFullYear();
 
-    dataBase = Array.from({ length: 6 }, (_, i) => {
-      const year = anioActual - 4 + i; // 4 atrás + actual + 1 futuro
+    dataBase = Array.from({ length: 5 }, (_, i) => {
+      const year = anioActual - (4 - i);
       return {
         year,
         label: String(year),
         valor: 0,
+        esActual: year === anioActual,
       };
     });
 
     const fechaInicio = new Date(anioActual - 4, 0, 1, 0, 0, 0, 0);
-    const fechaFin = new Date(anioActual + 1, 11, 31, 23, 59, 59, 999);
+    const fechaFin = new Date(anioActual, 11, 31, 23, 59, 59, 999);
 
     const ventas = await Venta.findAll({
       attributes: [
@@ -566,18 +564,16 @@ async function obtenerCrecimiento(finca_id, periodo = 'Semana') {
     });
   }
 
-  const maxValor = Math.max(...dataBase.map((x) => Number(x.valor || 0)), 0);
+  const maxValor = Math.max(...dataBase.map((x) => x.valor), 0);
 
   return dataBase.map((item) => {
-    const valor = Number(item.valor || 0);
-    const alturaReal = maxValor > 0 ? (valor / maxValor) * 100 : 0;
+    const alturaReal = maxValor > 0 ? (item.valor / maxValor) * 100 : 0;
 
     return {
       label: item.label,
-      valor,
-      altura: valor > 0 ? Math.max(12, Math.round(alturaReal)) : 0,
-      activo: valor === maxValor && valor > 0,
-      pct: maxValor > 0 ? Math.round((valor / maxValor) * 100) : 0,
+      valor: item.valor,
+      altura: item.valor > 0 ? Math.max(12, Math.round(alturaReal)) : 0,
+      activo: item.esActual === true,
     };
   });
 }
