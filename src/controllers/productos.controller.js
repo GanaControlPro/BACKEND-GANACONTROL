@@ -14,16 +14,11 @@ function requireUser(req, res) {
 
 function calcularEstadoInventario(producto) {
   const actual = Number(producto.cantidad_actual || 0);
-  const min = Number(producto.cantidad_min || 0);
 
-  if (actual <= 0) return 'agotado';
-
-  const porcentaje = min > 0 ? (actual / min) * 100 : 100;
-
-  if (porcentaje <= 25) return 'critico';
-  if (porcentaje < 50) return 'stock_bajo';
-
-  return 'en_stock';
+  if (actual <= 0) return "agotado";
+  if (actual < 20) return "critico";
+  if (actual < 50) return "stock_bajo";
+  return "en_stock";
 }
 
 function agregarEstadoInventario(producto) {

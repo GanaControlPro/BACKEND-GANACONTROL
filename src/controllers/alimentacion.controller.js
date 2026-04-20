@@ -2,16 +2,6 @@ const alimentacionService = require('../services/alimentacion.service');
 const { Ganado, Producto } = require('../models');
 
 const TIPOS_ANIMAL_VALIDOS = ['Vaca', 'Toro', 'Ternero', 'Novillo'];
-const TIPOS_ALIMENTO_VALIDOS = [
-  'Pasto',
-  'Concentrado',
-  'Suplemento_Mineral',
-  'Ensilaje',
-  'Heno',
-  'Sal',
-  'Melaza',
-  'Otro'
-];
 const FRECUENCIAS_VALIDAS = [
   'Diaria',
   'Dos_veces_al_dia',
@@ -31,27 +21,17 @@ const validarPayload = (body, esEdicion = false) => {
     }
   }
 
+  if (!esEdicion || 'producto_id' in body) {
+    if (esVacio(body.producto_id)) {
+      errores.push({ campo: 'producto_id', mensaje: 'Debe seleccionar un producto' });
+    }
+  }
+
   if (!esEdicion || 'tipo_animal' in body) {
     if (esVacio(body.tipo_animal)) {
       errores.push({ campo: 'tipo_animal', mensaje: 'Debe seleccionar el tipo de animal' });
     } else if (!TIPOS_ANIMAL_VALIDOS.includes(body.tipo_animal)) {
       errores.push({ campo: 'tipo_animal', mensaje: 'El tipo de animal no es válido' });
-    }
-  }
-
-  if (!esEdicion || 'nombre_alimento' in body) {
-    if (esVacio(body.nombre_alimento)) {
-      errores.push({ campo: 'nombre_alimento', mensaje: 'Debe ingresar el nombre del alimento' });
-    } else if (String(body.nombre_alimento).trim().length < 2) {
-      errores.push({ campo: 'nombre_alimento', mensaje: 'El nombre del alimento es muy corto' });
-    }
-  }
-
-  if (!esEdicion || 'tipo_alimento' in body) {
-    if (esVacio(body.tipo_alimento)) {
-      errores.push({ campo: 'tipo_alimento', mensaje: 'Debe seleccionar el tipo de alimento' });
-    } else if (!TIPOS_ALIMENTO_VALIDOS.includes(body.tipo_alimento)) {
-      errores.push({ campo: 'tipo_alimento', mensaje: 'El tipo de alimento no es válido' });
     }
   }
 
@@ -144,10 +124,8 @@ const crear = async (req, res) => {
 
     const {
       ganado_id,
-      producto_id = null,
+      producto_id,
       tipo_animal,
-      nombre_alimento,
-      tipo_alimento,
       fecha,
       cantidad,
       frecuencia,
@@ -164,34 +142,29 @@ const crear = async (req, res) => {
       });
     }
 
-    if (producto_id) {
-      const producto = await validarProducto(producto_id, finca_id);
+    const producto = await validarProducto(producto_id, finca_id);
+    if (!producto) {
+      return res.status(400).json({
+        mensaje: 'Validación fallida',
+        errores: [
+          { campo: 'producto_id', mensaje: 'El producto seleccionado no existe o no pertenece a la finca' }
+        ]
+      });
+    }
 
-      if (!producto) {
-        return res.status(400).json({
-          mensaje: 'Validación fallida',
-          errores: [
-            { campo: 'producto_id', mensaje: 'El producto seleccionado no existe o no pertenece a la finca' }
-          ]
-        });
-      }
-
-      if (producto.tipo !== 'Alimento') {
-        return res.status(400).json({
-          mensaje: 'Validación fallida',
-          errores: [
-            { campo: 'producto_id', mensaje: 'El producto seleccionado no es de tipo Alimento' }
-          ]
-        });
-      }
+    if (String(producto.tipo || '').toLowerCase() !== 'alimento') {
+      return res.status(400).json({
+        mensaje: 'Validación fallida',
+        errores: [
+          { campo: 'producto_id', mensaje: 'El producto seleccionado no es de tipo Alimento' }
+        ]
+      });
     }
 
     const registro = await alimentacionService.create({
       ganado_id,
-      producto_id: producto_id || null,
+      producto_id,
       tipo_animal,
-      nombre_alimento: String(nombre_alimento).trim(),
-      tipo_alimento,
       fecha,
       cantidad,
       frecuencia,
@@ -201,6 +174,13 @@ const crear = async (req, res) => {
     return res.status(201).json(registro);
   } catch (error) {
     console.error('Alimentacion.crear:', error);
+
+    if (error?.status) {
+      return res.status(error.status).json({
+        mensaje: error.mensaje || 'Validación fallida',
+        errores: error.errores || []
+      });
+    }
 
     if (
       error.name === 'SequelizeValidationError' ||
@@ -266,39 +246,34 @@ const actualizar = async (req, res) => {
     }
 
     if ('producto_id' in req.body) {
-      if (!req.body.producto_id) {
-        payload.producto_id = null;
-      } else {
-        const producto = await validarProducto(req.body.producto_id, finca_id);
+      const producto = await validarProducto(req.body.producto_id, finca_id);
 
-        if (!producto) {
-          return res.status(400).json({
-            mensaje: 'Validación fallida',
-            errores: [
-              { campo: 'producto_id', mensaje: 'El producto seleccionado no existe o no pertenece a la finca' }
-            ]
-          });
-        }
-
-        if (producto.tipo !== 'Alimento') {
-          return res.status(400).json({
-            mensaje: 'Validación fallida',
-            errores: [
-              { campo: 'producto_id', mensaje: 'El producto seleccionado no es de tipo Alimento' }
-            ]
-          });
-        }
-
-        payload.producto_id = req.body.producto_id;
+      if (!producto) {
+        return res.status(400).json({
+          mensaje: 'Validación fallida',
+          errores: [
+            { campo: 'producto_id', mensaje: 'El producto seleccionado no existe o no pertenece a la finca' }
+          ]
+        });
       }
+
+      if (String(producto.tipo || '').toLowerCase() !== 'alimento') {
+        return res.status(400).json({
+          mensaje: 'Validación fallida',
+          errores: [
+            { campo: 'producto_id', mensaje: 'El producto seleccionado no es de tipo Alimento' }
+          ]
+        });
+      }
+
+      payload.producto_id = req.body.producto_id;
     }
 
     if ('tipo_animal' in req.body) payload.tipo_animal = req.body.tipo_animal;
-    if ('nombre_alimento' in req.body) payload.nombre_alimento = String(req.body.nombre_alimento).trim();
-    if ('tipo_alimento' in req.body) payload.tipo_alimento = req.body.tipo_alimento;
     if ('fecha' in req.body) payload.fecha = req.body.fecha;
     if ('cantidad' in req.body) payload.cantidad = req.body.cantidad;
     if ('frecuencia' in req.body) payload.frecuencia = req.body.frecuencia;
+
     if ('observacion' in req.body) {
       payload.observacion = req.body.observacion ? String(req.body.observacion).trim() : null;
     }
@@ -312,6 +287,13 @@ const actualizar = async (req, res) => {
     return res.json(registro);
   } catch (error) {
     console.error('Alimentacion.actualizar:', error);
+
+    if (error?.status) {
+      return res.status(error.status).json({
+        mensaje: error.mensaje || 'Validación fallida',
+        errores: error.errores || []
+      });
+    }
 
     if (
       error.name === 'SequelizeValidationError' ||
