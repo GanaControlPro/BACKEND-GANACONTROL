@@ -24,6 +24,14 @@ const ensureMw = (mw, name) => {
 
 router.get('/ping', (req, res) => res.json({ ok: true, modulo: 'productos' }));
 
+// 🔥 NUEVA RUTA PARA SALUD
+router.get(
+  '/salud',
+  ensureMw(authJwt, 'authJwt'),
+  ensureMw(can('productos.ver'), "can('productos.ver')"),
+  ensureFn(c.listarParaSalud, 'productosController.listarParaSalud')
+);
+
 router.get(
   '/',
   ensureMw(authJwt, 'authJwt'),

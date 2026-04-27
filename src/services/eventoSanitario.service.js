@@ -55,6 +55,83 @@ class EventoSanitarioService {
   }
 
   async crear(data, user) {
+  return await sequelize.transaction(async (t) => {
+    const ganado = await Ganado.findOne({
+      where: {
+        id: data.ganado_id,
+        finca_id: user.finca_id
+      },
+      transaction: t
+    });
+
+    if (!ganado) {
+      const error = new Error('El ganado no existe o no pertenece a la finca del usuario');
+      error.status = 404;
+      throw error;
+    }
+
+    if (data.producto_id && data.cantidad_usada) {
+      const producto = await Producto.findOne({
+        where: {
+          id: data.producto_id,
+          finca_id: user.finca_id,
+          tipo: ['Medicamento', 'Insumo'] 
+        },
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
+
+      if (!producto) {
+        const error = new Error('El producto no existe o no pertenece a la finca del usuario');
+        error.status = 404;
+        throw error;
+      }
+
+      const stockActual = Number(producto.cantidad_actual || 0);
+      const cantidadUsada = Number(data.cantidad_usada || 0);
+
+      if (stockActual <= 0) {
+        const error = new Error(`No hay stock disponible para ${producto.nombre}`);
+        error.status = 400;
+        throw error;
+      }
+
+      if (cantidadUsada > stockActual) {
+        const error = new Error(
+          `Stock insuficiente. Disponible: ${stockActual} ${producto.unidad || ''}. Solicitado: ${cantidadUsada}`
+        );
+        error.status = 400;
+        throw error;
+      }
+
+      await producto.update(
+        {
+          cantidad_actual: stockActual - cantidadUsada
+        },
+        { transaction: t }
+      );
+    }
+
+    const nuevo = await EventoSanitario.create(
+      {
+        ...data,
+        usuario_id: data.usuario_id || user.id
+      },
+      { transaction: t }
+    );
+
+    return await this.obtener(nuevo.id, user);
+  });
+}
+
+  async actualizar(id, data, user) {
+  const registro = await this.obtener(id, user);
+  if (!registro) return null;
+
+  // No permitir que el frontend mande usuario_id manualmente
+  delete data.usuario_id;
+
+  if (data.ganado_id) {
     const ganado = await Ganado.findOne({
       where: {
         id: data.ganado_id,
@@ -67,37 +144,15 @@ class EventoSanitarioService {
       error.status = 404;
       throw error;
     }
-
-    const nuevo = await EventoSanitario.create({
-      ...data,
-      usuario_id: data.usuario_id || user.id
-    });
-
-    return await this.obtener(nuevo.id, user);
   }
 
-  async actualizar(id, data, user) {
-    const registro = await this.obtener(id, user);
-    if (!registro) return null;
+  await registro.update({
+    ...data,
+    usuario_id: user.id // último usuario que hizo el cambio
+  });
 
-    if (data.ganado_id) {
-      const ganado = await Ganado.findOne({
-        where: {
-          id: data.ganado_id,
-          finca_id: user.finca_id
-        }
-      });
-
-      if (!ganado) {
-        const error = new Error('El ganado no existe o no pertenece a la finca del usuario');
-        error.status = 404;
-        throw error;
-      }
-    }
-
-    await registro.update(data);
-    return await this.obtener(id, user);
-  }
+  return await this.obtener(id, user);
+}
 
   async eliminar(id, user) {
     const registro = await this.obtener(id, user);
@@ -198,71 +253,73 @@ class EventoSanitarioService {
 }
 
   async obtenerEstatus(user) {
-    const totalAnimalesActivos = await Ganado.count({
-      where: {
-        finca_id: user.finca_id,
-        estado_general: 'Activo'
-      }
-    });
+  const hoyStr = new Date().toISOString().split('T')[0];
 
-    const vacunados = await EventoSanitario.findAll({
-      where: { tipo: 'Vacunacion' },
-      include: [
-        {
-          model: Ganado,
-          as: 'ganado',
-          attributes: ['id'],
-          where: { finca_id: user.finca_id }
-        }
-      ]
-    });
-
-    const animalesVacunadosUnicos = new Set(
-      vacunados.map(v => v.ganado_id)
-    ).size;
-
-    const seguimientos = await EventoSanitario.findAll({
-      where: {
-        proxima_fecha: { [Op.ne]: null }
-      },
-      include: [
-        {
-          model: Ganado,
-          as: 'ganado',
-          attributes: ['id'],
-          where: { finca_id: user.finca_id }
-        }
-      ]
-    });
-
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let alDia = 0;
-    let pendientes = 0;
-
-    for (const item of seguimientos) {
-      const fecha = new Date(item.proxima_fecha);
-      fecha.setHours(0, 0, 0, 0);
-
-      if (fecha >= hoy) alDia++;
-      else pendientes++;
+  const totalAnimalesActivos = await Ganado.count({
+    where: {
+      finca_id: user.finca_id,
+      estado_general: 'Activo'
     }
+  });
 
-    const pctVacunacion = totalAnimalesActivos > 0
-      ? Math.round((animalesVacunadosUnicos / totalAnimalesActivos) * 100)
-      : 0;
+  const vacunados = await EventoSanitario.findAll({
+    where: { tipo: 'Vacunacion' },
+    include: [
+      {
+        model: Ganado,
+        as: 'ganado',
+        attributes: ['id'],
+        where: { finca_id: user.finca_id }
+      }
+    ]
+  });
 
-    const totalSeguimientos = seguimientos.length || 1;
-    const pctSeguimientos = Math.round((alDia / totalSeguimientos) * 100);
-    const pctPendientes = Math.round((pendientes / totalSeguimientos) * 100);
+  const animalesVacunadosUnicos = new Set(
+    vacunados.map(v => v.ganado_id)
+  ).size;
 
-    return [
-      { label: 'Vacunación al día', pct: pctVacunacion },
-      { label: 'Seguimientos al día', pct: pctSeguimientos },
-      { label: 'Pendientes sanitarios', pct: pctPendientes }
-    ];
-  }
+  const eventos = await EventoSanitario.findAll({
+    include: [
+      {
+        model: Ganado,
+        as: 'ganado',
+        attributes: ['id'],
+        where: { finca_id: user.finca_id }
+      }
+    ]
+  });
+
+  const pendientes = eventos.filter((e) => {
+    const fechaFutura = e.fecha && e.fecha > hoyStr;
+    const proximaFutura = e.proxima_fecha && e.proxima_fecha > hoyStr;
+    return fechaFutura || proximaFutura;
+  }).length;
+
+  const alDia = eventos.filter((e) => {
+    const fechaOk = !e.fecha || e.fecha <= hoyStr;
+    const proximaOk = !e.proxima_fecha || e.proxima_fecha <= hoyStr;
+    return fechaOk && proximaOk;
+  }).length;
+
+  const totalBase = Math.max(eventos.length, 1);
+
+  return [
+    {
+      label: 'Vacunación al día',
+      pct: totalAnimalesActivos > 0
+        ? Math.round((animalesVacunadosUnicos / totalAnimalesActivos) * 100)
+        : 0
+    },
+    {
+      label: 'Seguimientos al día',
+      pct: Math.round((alDia / totalBase) * 100)
+    },
+    {
+      label: 'Pendientes sanitarios',
+      pct: Math.round((pendientes / totalBase) * 100)
+    }
+  ];
+}
 
   async obtenerResumen(user) {
     const [
@@ -308,9 +365,10 @@ class EventoSanitarioService {
     ).length;
 
     const alertasActivas = eventos.filter((e) => {
-      if (!e.proxima_fecha) return false;
-      return e.proxima_fecha > hoyStr;
-    }).length;
+    const fechaFutura = e.fecha && e.fecha > hoyStr;
+    const proximaFutura = e.proxima_fecha && e.proxima_fecha > hoyStr;
+    return fechaFutura || proximaFutura;
+  }).length;
 
     return {
       animalesActivos,

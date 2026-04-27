@@ -53,6 +53,27 @@ async function listar(req, res, next) {
   }
 }
 
+async function listarParaSalud(req, res, next) {
+  try {
+    if (!req.user || !req.user.finca_id) {
+      return fail(res, { code: 401, mensaje: 'No autorizado' });
+    }
+
+    const productos = await Producto.findAll({
+      where: {
+        finca_id: req.user.finca_id,
+        tipo: ['Medicamento', 'Insumo']
+      },
+      attributes: ['id', 'nombre', 'tipo', 'cantidad_actual', 'unidad'],
+      order: [['nombre', 'ASC']]
+    });
+
+    return ok(res, { mensaje: 'Productos salud OK', data: productos });
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function obtenerPorId(req, res, next) {
   try {
     if (!requireUser(req, res)) return;
@@ -360,6 +381,7 @@ async function movimiento(req, res, next) {
 
 module.exports = {
   listar,
+  listarParaSalud,
   obtenerPorId,
   crear,
   actualizar,
