@@ -189,6 +189,7 @@ CREATE TABLE `evento_sanitario` (
   `fecha` date NOT NULL,
   `costo` decimal(10,2) DEFAULT NULL,
   `proxima_fecha` date DEFAULT NULL,
+  `cantidad_usada` decimal(10,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ganado_id` (`ganado_id`),
   KEY `usuario_id` (`usuario_id`),
@@ -196,7 +197,7 @@ CREATE TABLE `evento_sanitario` (
   CONSTRAINT `evento_sanitario_ibfk_1` FOREIGN KEY (`ganado_id`) REFERENCES `ganado` (`id`),
   CONSTRAINT `evento_sanitario_ibfk_2` FOREIGN KEY (`usuario_id`) REFERENCES `usuario` (`id`),
   CONSTRAINT `evento_sanitario_ibfk_3` FOREIGN KEY (`producto_id`) REFERENCES `producto` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -207,8 +208,8 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `evento_sanitario` WRITE;
 /*!40000 ALTER TABLE `evento_sanitario` DISABLE KEYS */;
 INSERT INTO `evento_sanitario` VALUES
-(5,21,1,'Vacunacion',NULL,'Seguimiento y revisar que todo est├® en perfectas condiciones ','5 ml','Intramuscular ','2026-04-06',30000.00,'2026-04-27'),
-(6,20,NULL,'Revision',NULL,'Revisi├│n de parto ',NULL,NULL,'2026-04-08',120000.00,NULL);
+(9,20,1,'Vacunacion',22,'Ninguna','Ninguna',NULL,'2026-04-27',10000.00,NULL,5.00),
+(10,21,1,'Vacunacion',19,'Ninguna',NULL,NULL,'2026-04-27',8000.00,'2026-05-06',5.00);
 /*!40000 ALTER TABLE `evento_sanitario` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -308,8 +309,8 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `ganado` WRITE;
 /*!40000 ALTER TABLE `ganado` DISABLE KEYS */;
 INSERT INTO `ganado` VALUES
-(20,1,'001','Blanca','Hembra','Vaca','Ceb├║','2021-02-03',500.00,'/uploads/ganado/ganado-1774319063928-814073550.jpeg','Activo','Vivo','Disponible','Sano','Proxima al parto','2025-01-09',NULL,2,NULL,NULL,NULL,'Compra','2026-03-23','Reproduccion',1,'Ninguna','2026-03-23 21:24:23','2026-04-12 21:55:10'),
-(21,1,'002','Simon','Macho','Toro','Brahman','2019-03-04',900.00,'/uploads/ganado/ganado-1774322544304-670937946.jpeg','Activo','Vivo','Disponible','En observacion','No aplica',NULL,NULL,0,NULL,NULL,NULL,'Compra',NULL,'Reproduccion',1,'Excelentes condiciones ','2026-03-23 22:22:24','2026-03-23 23:29:03');
+(20,1,'001','Blanca','Hembra','Vaca','Ceb├║','2021-02-03',500.00,'/uploads/ganado/ganado-1774319063928-814073550.jpeg','Activo','Vivo','Disponible','Sano','Proxima al parto','2025-01-09',NULL,2,NULL,NULL,NULL,'Compra','2026-03-23','Reproduccion',1,'Ninguna','2026-03-23 21:24:23','2026-04-25 20:11:05'),
+(21,1,'002','Simon','Macho','Toro','Brahman','2019-03-04',900.00,'/uploads/ganado/ganado-1774322544304-670937946.jpeg','Activo','Vivo','Disponible','Sano','No aplica',NULL,NULL,0,NULL,NULL,NULL,'Compra',NULL,'Reproduccion',1,'Excelentes condiciones ','2026-03-23 22:22:24','2026-04-25 20:11:20');
 /*!40000 ALTER TABLE `ganado` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -360,7 +361,7 @@ CREATE TABLE `log_actividad` (
   PRIMARY KEY (`id`),
   KEY `usuario_id` (`usuario_id`),
   CONSTRAINT `log_actividad_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuario` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=332 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=344 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -701,7 +702,19 @@ INSERT INTO `log_actividad` VALUES
 (328,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.29.0.1','PostmanRuntime/7.51.1','POST','/api/auth/login','2026-04-18 11:56:31'),
 (329,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-18 11:58:20'),
 (330,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-18 12:10:17'),
-(331,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-20 11:36:28');
+(331,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-20 11:36:28'),
+(332,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.31.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-20 12:16:33'),
+(333,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.31.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-25 19:38:53'),
+(334,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-25 19:59:33'),
+(335,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-25 20:14:52'),
+(336,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-26 09:47:20'),
+(337,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.22.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-26 10:12:19'),
+(338,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.23.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-26 10:32:40'),
+(339,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.23.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-27 08:12:18'),
+(340,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.24.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-27 08:29:15'),
+(341,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.25.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-27 08:43:33'),
+(342,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.26.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-27 08:53:07'),
+(343,1,'AUTH','LOGIN','Inicio de sesi├│n exitoso para jair.qek@gmail.com','172.27.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','POST','/api/auth/login','2026-04-27 09:15:38');
 /*!40000 ALTER TABLE `log_actividad` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -910,7 +923,7 @@ CREATE TABLE `producto` (
   UNIQUE KEY `uq_producto_nombre_finca` (`nombre`,`finca_id`),
   KEY `finca_id` (`finca_id`),
   CONSTRAINT `producto_ibfk_1` FOREIGN KEY (`finca_id`) REFERENCES `finca` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -921,9 +934,10 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `producto` WRITE;
 /*!40000 ALTER TABLE `producto` DISABLE KEYS */;
 INSERT INTO `producto` VALUES
-(19,1,'Medicamento','Ivermectina',NULL,'Sin proveedor','ml','Finca principal',NULL,NULL,NULL,90.00,10.00,'Operativo',1),
+(19,1,'Medicamento','Ivermectina',NULL,'Sin proveedor','ml','Finca principal',NULL,NULL,NULL,85.00,10.00,'Operativo',1),
 (20,1,'Alimento','Pasto',NULL,'Sin proveedor','kg','Finca principal',NULL,NULL,NULL,60.00,30.00,'Operativo',1),
-(21,1,'Alimento','Heno',NULL,'Sin proveedor','kg','Finca principal',200000.00,NULL,NULL,114.00,40.00,'Operativo',1);
+(21,1,'Alimento','Heno',NULL,'Sin proveedor','kg','Finca principal',200000.00,NULL,NULL,114.00,40.00,'Operativo',1),
+(22,1,'Medicamento','Fiebre Aftosa',NULL,NULL,'Ml',NULL,NULL,NULL,NULL,995.00,50.00,'Operativo',1);
 /*!40000 ALTER TABLE `producto` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -1226,7 +1240,7 @@ CREATE TABLE `sesion` (
   PRIMARY KEY (`id`),
   KEY `usuario_id` (`usuario_id`),
   CONSTRAINT `sesion_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuario` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=300 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=312 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1534,7 +1548,19 @@ INSERT INTO `sesion` VALUES
 (296,1,'7c427440d7bf4623816c205c642cac42f07924bcd1dc853a2dfcf4da80c0e328','172.29.0.1','PostmanRuntime/7.51.1','PostmanRuntime/7.51.1','2026-04-18 11:56:31','2026-04-25 11:56:31',0,'2026-04-18 11:56:31'),
 (297,1,'cf6c36a34bcf0ed37975f1ae64c3b34ea6171d3f0a52f0a26165dd50aa184cb2','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-18 11:58:20','2026-04-25 11:58:20',0,'2026-04-18 11:58:20'),
 (298,1,'1f6716bc08708f0fcb5dad881d688d4fbb4f7d55bfd2e05b83b418fe5fa99cc5','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-18 12:10:17','2026-04-25 12:10:17',0,'2026-04-18 12:10:17'),
-(299,1,'00b9e0b08d04a31aab6819a7eb4c4c4481840cf5a576012aa9a85f22d2ab44a5','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-20 11:36:28','2026-04-27 11:36:28',0,'2026-04-20 11:36:28');
+(299,1,'00b9e0b08d04a31aab6819a7eb4c4c4481840cf5a576012aa9a85f22d2ab44a5','172.29.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-20 11:36:28','2026-04-27 11:36:28',0,'2026-04-20 11:36:28'),
+(300,1,'99f3596f2121860fbad5a3a98cf215292c661eaf43ea5625dff4aeeee959488d','172.31.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-20 12:16:33','2026-04-27 12:16:33',0,'2026-04-20 12:16:33'),
+(301,1,'907d69a5b6ef7887c524c1c34114b66253bea6af6e65a1d99e37d5c5945c9a09','172.31.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-25 19:38:53','2026-05-02 19:38:53',0,'2026-04-25 19:38:53'),
+(302,1,'afc34ca45088f706b4019b83b4a3f2cc193a509ff91d8eac240a42676ff28f37','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-25 19:59:33','2026-05-02 19:59:33',0,'2026-04-25 19:59:33'),
+(303,1,'82ac081121faa3e20ca1f84d333d4ef527029864615ee0839e421b54888df725','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-25 20:14:52','2026-05-02 20:14:52',0,'2026-04-25 20:14:52'),
+(304,1,'1ceae55e34d6fcf28d74fb2fece3f3bcf3d5f4f2446e5a2d6d061618c632983b','172.20.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-26 09:47:20','2026-05-03 09:47:20',0,'2026-04-26 09:47:20'),
+(305,1,'7a13c2ccc7a094f94f97e3bc68fc548ae73861208dfc40b0b1b587a92644a538','172.22.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-26 10:12:19','2026-05-03 10:12:19',0,'2026-04-26 10:12:19'),
+(306,1,'979a4c9de6cddc64deff8ae858074208b22266417b92068bea9beffc9fbb69c9','172.23.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-26 10:32:40','2026-05-03 10:32:40',0,'2026-04-26 10:32:40'),
+(307,1,'4cad1601287331417647e4b80cafac5bb2df8be8cabec9adcbf227ab6b7e87b6','172.23.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-27 08:12:18','2026-05-04 08:12:18',0,'2026-04-27 08:12:18'),
+(308,1,'ca0014a0d09647922d027792a2c8952f0b4a2a3ab329e580c7fc9f783e5c46b4','172.24.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-27 08:29:15','2026-05-04 08:29:15',0,'2026-04-27 08:29:15'),
+(309,1,'0d3bd0195a3d7f55801d42f30ef7aaf392ce3c8155a7f4a07680d60b7aaf696a','172.25.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-27 08:43:33','2026-05-04 08:43:33',0,'2026-04-27 08:43:33'),
+(310,1,'e7dd530f091025589d529544dadf991c499910c2be55259fb20d93f9a6e3ea38','172.26.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-27 08:53:07','2026-05-04 08:53:07',0,'2026-04-27 08:53:07'),
+(311,1,'50be3b90f55afd6d2e3a2f2c754eda5b5e616d0564dc517452d59ff0f0d35784','172.27.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0','2026-04-27 09:15:38','2026-05-04 09:15:38',0,'2026-04-27 09:15:38');
 /*!40000 ALTER TABLE `sesion` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -1582,7 +1608,7 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `usuario` WRITE;
 /*!40000 ALTER TABLE `usuario` DISABLE KEYS */;
 INSERT INTO `usuario` VALUES
-(1,1,1,'Jair Alfonso','Arias Cueca','jair.qek@gmail.com','$2b$10$xdqfmc5YBVKhDutIu/wV9urKugvKWyPqrcIdohD8RF0GkXD9iQ/hq',1,'2026-03-09 22:13:00',NULL,'local',0,NULL,'2026-04-20 11:36:28','695aedc123e908b6880e1f0f547c6b620d69f4cfbc9c0b8878e6027e7ba7aa25','2026-04-13 15:58:44'),
+(1,1,1,'Jair Alfonso','Arias Cueca','jair.qek@gmail.com','$2b$10$xdqfmc5YBVKhDutIu/wV9urKugvKWyPqrcIdohD8RF0GkXD9iQ/hq',1,'2026-03-09 22:13:00',NULL,'local',0,NULL,'2026-04-27 09:15:38','695aedc123e908b6880e1f0f547c6b620d69f4cfbc9c0b8878e6027e7ba7aa25','2026-04-13 15:58:44'),
 (3,1,3,'Nicolas David ','Pe├▒a Gomez','nicolasgomezz373@gmail.com','$2b$10$cl1.Yhnxf5t.IFEuoIXzmeYDbDdswA4mzTt5ecKTUBs836QewIWti',1,'2026-03-15 20:28:38',NULL,'local',0,NULL,'2026-04-13 12:14:52','cd6fc1efd61caae5ab9839db008df76fd9997fdd936397e9d571cbbf2a732af0','2026-04-13 12:27:15'),
 (4,1,2,'Kevin David ','Lopez Delgado','davidx.lopezj11@gmail.com','$2b$10$m4mh4fYm5fDyjUe6NAFxlu6b3Fg1JCgdiyDobo6PNUIiMYXIEqm.i',1,'2026-03-17 14:00:20',NULL,'local',0,NULL,'2026-04-13 15:34:12',NULL,NULL),
 (5,1,4,'Michaell Steven','Gomez Leguizamo','michaell01gomez63@gmail.com','$2b$10$Nn3tFY.vZzZ6N315VUm/quOD26CCCSKF.T3TE7tupnnpqothzTe.y',1,'2026-03-17 14:01:33',NULL,'local',0,NULL,'2026-04-13 15:36:21',NULL,NULL);
@@ -1775,4 +1801,4 @@ USE `ganacontrol`;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-04-20 16:41:06
+-- Dump completed on 2026-04-27 14:35:15
