@@ -1,35 +1,43 @@
-const bcrypt = require('bcryptjs');
-const { Usuario, Rol, Sesion } = require('../models');
-const { verifyGoogleIdToken } = require('../services/google.service');
-const crypto = require('crypto');
-const { registrarActividad } = require('../services/logActividad.service');
-const { sendResetPasswordMail } = require('../services/mail.service');
-const { ok, fail } = require('../utils/response');
+const bcrypt = require("bcryptjs");
+const { Usuario, Rol, Permiso, Sesion } = require("../models");
+const { verifyGoogleIdToken } = require("../services/google.service");
+const crypto = require("crypto");
+const { registrarActividad } = require("../services/logActividad.service");
+const { sendResetPasswordMail } = require("../services/mail.service");
+const { ok, fail } = require("../utils/response");
 const {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
   hashToken,
-  getRefreshExpiresAt
-} = require('../utils/token');
+  getRefreshExpiresAt,
+} = require("../utils/token");
 
 function normalizeEmail(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || "").trim().toLowerCase();
 }
 
 function getRequestMeta(req) {
   return {
-    ip: req.ip || req.headers['x-forwarded-for'] || null,
-    userAgent: req.get('user-agent') || null,
-    dispositivo: req.get('user-agent') || 'Desconocido'
+    ip: req.ip || req.headers["x-forwarded-for"] || null,
+    userAgent: req.get("user-agent") || null,
+    dispositivo: req.get("user-agent") || "Desconocido",
   };
+}
+
+function obtenerPermisosUsuario(user) {
+  return Array.isArray(user?.rol?.permisos)
+    ? user.rol.permisos.map((p) => p.codigo).filter(Boolean)
+    : [];
 }
 
 function buildUserPayload(user) {
   return {
     id: user.id,
     finca_id: user.finca_id,
-    rol: user.rol?.nombre || user.rol || null
+    rol_id: user.rol_id,
+    rol: user.rol?.nombre || user.rol || null,
+    permisos: obtenerPermisosUsuario(user),
   };
 }
 
@@ -37,6 +45,7 @@ function buildUserResponse(user) {
   return {
     id: user.id,
     finca_id: user.finca_id,
+    rol_id: user.rol_id,
     rol: user.rol?.nombre || user.rol || null,
     nombres: user.nombres,
     apellidos: user.apellidos,
@@ -45,50 +54,67 @@ function buildUserResponse(user) {
     proveedor_auth: user.proveedor_auth,
     email_verificado: user.email_verificado,
     foto_url: user.foto_url,
-    ultimo_login: user.ultimo_login
+    ultimo_login: user.ultimo_login,
+    permisos: obtenerPermisosUsuario(user),
   };
 }
 
+const includeRolPermisos = [
+  {
+    model: Rol,
+    as: "rol",
+    attributes: ["id", "nombre"],
+    include: [
+      {
+        model: Permiso,
+        as: "permisos",
+        attributes: ["id", "codigo", "nombre", "descripcion"],
+        through: { attributes: [] },
+      },
+    ],
+  },
+];
+
 function ensureSesionModel() {
   if (!Sesion) {
-    throw new Error('El modelo Sesion no está disponible en ../models');
+    throw new Error("El modelo Sesion no está disponible en ../models");
   }
 }
 
 function handleControllerError(res, scope, error) {
   console.error(`${scope}:`, error);
 
-  const message = error?.message || 'Error en el servidor';
+  const message = error?.message || "Error en el servidor";
   const status = error?.statusCode || 500;
 
   return fail(res, message, null, status);
 }
 
-function splitName(fullName = '') {
+function splitName(fullName = "") {
   const clean = String(fullName).trim();
 
   if (!clean) {
-    return { nombres: 'Usuario Google', apellidos: '' };
+    return { nombres: "Usuario Google", apellidos: "" };
   }
 
   const parts = clean.split(/\s+/);
 
   if (parts.length === 1) {
-    return { nombres: parts[0], apellidos: '' };
+    return { nombres: parts[0], apellidos: "" };
   }
 
   return {
-    nombres: parts.slice(0, 2).join(' '),
-    apellidos: parts.slice(2).join(' ')
+    nombres: parts.slice(0, 2).join(" "),
+    apellidos: parts.slice(2).join(" "),
   };
 }
 
 function generateResetToken() {
-  return crypto.randomBytes(32).toString('hex');
+  return crypto.randomBytes(32).toString("hex");
 }
 
 function hashResetToken(token) {
-  return crypto.createHash('sha256').update(String(token)).digest('hex');
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
 }
 
 function getResetTokenExpiresAt() {
@@ -101,9 +127,9 @@ async function findActiveUserByEmail(correo) {
   return Usuario.findOne({
     where: {
       correo: normalizeEmail(correo),
-      activo: true
+      activo: true,
     },
-    include: [{ model: Rol, as: 'rol' }]
+    include: includeRolPermisos,
   });
 }
 
@@ -111,9 +137,9 @@ async function findActiveUserById(id) {
   return Usuario.findOne({
     where: {
       id,
-      activo: true
+      activo: true,
     },
-    include: [{ model: Rol, as: 'rol' }]
+    include: includeRolPermisos,
   });
 }
 
@@ -121,18 +147,18 @@ async function findUserByGoogleId(googleId) {
   return Usuario.findOne({
     where: {
       google_id: googleId,
-      activo: true
+      activo: true,
     },
-    include: [{ model: Rol, as: 'rol' }]
+    include: includeRolPermisos,
   });
 }
 
 async function findUserByEmailAnyStatus(correo) {
   return Usuario.findOne({
     where: {
-      correo: normalizeEmail(correo)
+      correo: normalizeEmail(correo),
     },
-    include: [{ model: Rol, as: 'rol' }]
+    include: includeRolPermisos,
   });
 }
 
@@ -143,13 +169,13 @@ async function createSessionForUser(user, req) {
 
   return Sesion.create({
     usuario_id: user.id,
-    refresh_token_hash: 'pendiente',
+    refresh_token_hash: "pendiente",
     ip: meta.ip,
     user_agent: meta.userAgent,
     dispositivo: meta.dispositivo,
     ultimo_uso: new Date(),
     expira_en: getRefreshExpiresAt(),
-    revocada: false
+    revocada: false,
   });
 }
 
@@ -162,7 +188,7 @@ async function issueTokensForSession(user, sesion) {
   await sesion.update({
     refresh_token_hash: hashToken(refreshToken),
     ultimo_uso: new Date(),
-    expira_en: getRefreshExpiresAt()
+    expira_en: getRefreshExpiresAt(),
   });
 
   return { accessToken, refreshToken };
@@ -179,7 +205,7 @@ async function revokeSessionById(sesionId) {
 
   await sesion.update({
     revocada: true,
-    ultimo_uso: new Date()
+    ultimo_uso: new Date(),
   });
 
   return sesion;
@@ -192,11 +218,11 @@ async function validateRefreshTokenAndSession(refreshToken) {
 
   try {
     payload = verifyRefreshToken(refreshToken);
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 401,
-      message: 'Refresh token inválido o expirado'
+      message: "Refresh token inválido o expirado",
     };
   }
 
@@ -206,7 +232,7 @@ async function validateRefreshTokenAndSession(refreshToken) {
     return {
       ok: false,
       status: 401,
-      message: 'Sesión no encontrada'
+      message: "Sesión no encontrada",
     };
   }
 
@@ -214,7 +240,7 @@ async function validateRefreshTokenAndSession(refreshToken) {
     return {
       ok: false,
       status: 401,
-      message: 'Sesión revocada'
+      message: "Sesión revocada",
     };
   }
 
@@ -222,7 +248,7 @@ async function validateRefreshTokenAndSession(refreshToken) {
     return {
       ok: false,
       status: 401,
-      message: 'Sesión expirada'
+      message: "Sesión expirada",
     };
   }
 
@@ -233,14 +259,14 @@ async function validateRefreshTokenAndSession(refreshToken) {
     return {
       ok: false,
       status: 401,
-      message: 'Refresh token inválido'
+      message: "Refresh token inválido",
     };
   }
 
   return {
     ok: true,
     payload,
-    sesion
+    sesion,
   };
 }
 
@@ -251,13 +277,13 @@ async function login(req, res) {
     const { correo, contrasena } = req.body || {};
 
     if (!correo || !contrasena) {
-      return fail(res, 'correo y contrasena son obligatorios', null, 400);
+      return fail(res, "correo y contrasena son obligatorios", null, 400);
     }
 
     const user = await findActiveUserByEmail(correo);
 
     if (!user) {
-      return fail(res, 'Credenciales inválidas', null, 401);
+      return fail(res, "Credenciales inválidas", null, 401);
     }
 
     const okPass = await bcrypt.compare(
@@ -266,49 +292,57 @@ async function login(req, res) {
     );
 
     if (!okPass) {
-      return fail(res, 'Credenciales inválidas', null, 401);
+      return fail(res, "Credenciales inválidas", null, 401);
     }
 
     const sesion = await createSessionForUser(user, req);
-    const { accessToken, refreshToken } = await issueTokensForSession(user, sesion);
+    const { accessToken, refreshToken } = await issueTokensForSession(
+      user,
+      sesion
+    );
 
     await user.update({
-      ultimo_login: new Date()
+      ultimo_login: new Date(),
     });
 
     await registrarActividad({
       usuarioId: user.id,
-      modulo: 'AUTH',
-      accion: 'LOGIN',
+      modulo: "AUTH",
+      accion: "LOGIN",
       descripcion: `Inicio de sesión exitoso para ${user.correo}`,
-      req
+      req,
     });
 
-    return ok(res, 'Login exitoso', {
-      accessToken,
-      refreshToken,
-      usuario: buildUserResponse(user)
-    }, 200);
+    return ok(
+      res,
+      "Login exitoso",
+      {
+        accessToken,
+        refreshToken,
+        usuario: buildUserResponse(user),
+      },
+      200
+    );
   } catch (error) {
-    return handleControllerError(res, 'Auth.login', error);
+    return handleControllerError(res, "Auth.login", error);
   }
 }
 
 async function me(req, res) {
   try {
     if (!req.user?.id) {
-      return fail(res, 'No autorizado', null, 401);
+      return fail(res, "No autorizado", null, 401);
     }
 
     const user = await findActiveUserById(req.user.id);
 
     if (!user) {
-      return fail(res, 'Usuario no encontrado', null, 404);
+      return fail(res, "Usuario no encontrado", null, 404);
     }
 
-    return ok(res, 'Usuario autenticado', buildUserResponse(user), 200);
+    return ok(res, "Usuario autenticado", buildUserResponse(user), 200);
   } catch (error) {
-    return handleControllerError(res, 'Auth.me', error);
+    return handleControllerError(res, "Auth.me", error);
   }
 }
 
@@ -319,7 +353,7 @@ async function refresh(req, res) {
     const { refreshToken } = req.body || {};
 
     if (!refreshToken) {
-      return fail(res, 'Refresh token requerido', null, 400);
+      return fail(res, "Refresh token requerido", null, 400);
     }
 
     const validation = await validateRefreshTokenAndSession(refreshToken);
@@ -333,18 +367,23 @@ async function refresh(req, res) {
     const user = await findActiveUserById(payload.id);
 
     if (!user) {
-      return fail(res, 'Usuario no válido', null, 401);
+      return fail(res, "Usuario no válido", null, 401);
     }
 
     const tokens = await issueTokensForSession(user, sesion);
 
-    return ok(res, 'Token renovado', {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      usuario: buildUserResponse(user)
-    }, 200);
+    return ok(
+      res,
+      "Token renovado",
+      {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        usuario: buildUserResponse(user),
+      },
+      200
+    );
   } catch (error) {
-    return handleControllerError(res, 'Auth.refresh', error);
+    return handleControllerError(res, "Auth.refresh", error);
   }
 }
 
@@ -355,34 +394,34 @@ async function logout(req, res) {
     const { refreshToken } = req.body || {};
 
     if (!refreshToken) {
-      return fail(res, 'Refresh token requerido', null, 400);
+      return fail(res, "Refresh token requerido", null, 400);
     }
 
     let payload;
 
     try {
       payload = verifyRefreshToken(refreshToken);
-    } catch (error) {
-      return fail(res, 'Refresh token inválido', null, 401);
+    } catch {
+      return fail(res, "Refresh token inválido", null, 401);
     }
 
     const sesion = await revokeSessionById(payload.sesionId);
 
     if (!sesion) {
-      return fail(res, 'Sesión no encontrada', null, 404);
+      return fail(res, "Sesión no encontrada", null, 404);
     }
 
     await registrarActividad({
       usuarioId: req.user?.id || null,
-      modulo: 'AUTH',
-      accion: 'LOGOUT',
-      descripcion: 'Cierre de sesión de la sesión actual',
-      req
+      modulo: "AUTH",
+      accion: "LOGOUT",
+      descripcion: "Cierre de sesión de la sesión actual",
+      req,
     });
 
-    return ok(res, 'Logout exitoso', null, 200);
+    return ok(res, "Logout exitoso", null, 200);
   } catch (error) {
-    return handleControllerError(res, 'Auth.logout', error);
+    return handleControllerError(res, "Auth.logout", error);
   }
 }
 
@@ -391,35 +430,40 @@ async function logoutAll(req, res) {
     ensureSesionModel();
 
     if (!req.user?.id) {
-      return fail(res, 'No autorizado', null, 401);
+      return fail(res, "No autorizado", null, 401);
     }
 
     const [cantidad] = await Sesion.update(
       {
         revocada: true,
-        ultimo_uso: new Date()
+        ultimo_uso: new Date(),
       },
       {
         where: {
           usuario_id: req.user.id,
-          revocada: false
-        }
+          revocada: false,
+        },
       }
     );
 
     await registrarActividad({
       usuarioId: req.user.id,
-      modulo: 'AUTH',
-      accion: 'LOGOUT_ALL',
+      modulo: "AUTH",
+      accion: "LOGOUT_ALL",
       descripcion: `Cierre de todas las sesiones. Total revocadas: ${cantidad}`,
-      req
+      req,
     });
 
-    return ok(res, 'Todas las sesiones fueron cerradas', {
-      sesiones_revocadas: cantidad
-    }, 200);
+    return ok(
+      res,
+      "Todas las sesiones fueron cerradas",
+      {
+        sesiones_revocadas: cantidad,
+      },
+      200
+    );
   } catch (error) {
-    return handleControllerError(res, 'Auth.logoutAll', error);
+    return handleControllerError(res, "Auth.logoutAll", error);
   }
 }
 
@@ -428,29 +472,34 @@ async function sessions(req, res) {
     ensureSesionModel();
 
     if (!req.user?.id) {
-      return fail(res, 'No autorizado', null, 401);
+      return fail(res, "No autorizado", null, 401);
     }
 
     const lista = await Sesion.findAll({
       where: {
         usuario_id: req.user.id,
-        revocada: false
+        revocada: false,
       },
-      order: [['ultimo_uso', 'DESC']]
+      order: [["ultimo_uso", "DESC"]],
     });
 
-    return ok(res, 'Sesiones activas', lista.map((s) => ({
-      id: s.id,
-      ip: s.ip,
-      user_agent: s.user_agent,
-      dispositivo: s.dispositivo,
-      ultimo_uso: s.ultimo_uso,
-      expira_en: s.expira_en,
-      revocada: s.revocada,
-      creado_en: s.creado_en
-    })), 200);
+    return ok(
+      res,
+      "Sesiones activas",
+      lista.map((s) => ({
+        id: s.id,
+        ip: s.ip,
+        user_agent: s.user_agent,
+        dispositivo: s.dispositivo,
+        ultimo_uso: s.ultimo_uso,
+        expira_en: s.expira_en,
+        revocada: s.revocada,
+        creado_en: s.creado_en,
+      })),
+      200
+    );
   } catch (error) {
-    return handleControllerError(res, 'Auth.sessions', error);
+    return handleControllerError(res, "Auth.sessions", error);
   }
 }
 
@@ -461,17 +510,22 @@ async function googleLogin(req, res) {
     const { idToken } = req.body || {};
 
     if (!idToken) {
-      return fail(res, 'El idToken de Google es obligatorio', null, 400);
+      return fail(res, "El idToken de Google es obligatorio", null, 400);
     }
 
     if (!process.env.GOOGLE_CLIENT_ID) {
-      return fail(res, 'GOOGLE_CLIENT_ID no está configurado', null, 500);
+      return fail(res, "GOOGLE_CLIENT_ID no está configurado", null, 500);
     }
 
     const googleData = await verifyGoogleIdToken(idToken);
 
     if (!googleData || !googleData.correo) {
-      return fail(res, 'No fue posible obtener el correo desde Google', null, 400);
+      return fail(
+        res,
+        "No fue posible obtener el correo desde Google",
+        null,
+        400
+      );
     }
 
     let user = await findUserByGoogleId(googleData.googleId);
@@ -482,11 +536,12 @@ async function googleLogin(req, res) {
       if (user) {
         await user.update({
           google_id: googleData.googleId,
-          proveedor_auth: user.proveedor_auth === 'local' ? 'local_google' : 'google',
+          proveedor_auth:
+            user.proveedor_auth === "local" ? "local_google" : "google",
           email_verificado: googleData.emailVerificado,
           foto_url: googleData.fotoUrl,
           activo: true,
-          ultimo_login: new Date()
+          ultimo_login: new Date(),
         });
 
         user = await findActiveUserById(user.id);
@@ -505,11 +560,11 @@ async function googleLogin(req, res) {
           correo: normalizeEmail(googleData.correo),
           contrasena: randomPasswordHash,
           google_id: googleData.googleId,
-          proveedor_auth: 'google',
+          proveedor_auth: "google",
           email_verificado: googleData.emailVerificado,
           foto_url: googleData.fotoUrl,
           activo: true,
-          ultimo_login: new Date()
+          ultimo_login: new Date(),
         });
 
         user = await findActiveUserById(user.id);
@@ -518,26 +573,34 @@ async function googleLogin(req, res) {
       await user.update({
         email_verificado: googleData.emailVerificado,
         foto_url: googleData.fotoUrl,
-        ultimo_login: new Date()
+        ultimo_login: new Date(),
       });
 
       user = await findActiveUserById(user.id);
     }
 
     if (!user) {
-      return fail(res, 'No fue posible iniciar sesión con Google', null, 500);
+      return fail(res, "No fue posible iniciar sesión con Google", null, 500);
     }
 
     const sesion = await createSessionForUser(user, req);
-    const { accessToken, refreshToken } = await issueTokensForSession(user, sesion);
+    const { accessToken, refreshToken } = await issueTokensForSession(
+      user,
+      sesion
+    );
 
-    return ok(res, 'Login con Google exitoso', {
-      accessToken,
-      refreshToken,
-      usuario: buildUserResponse(user)
-    }, 200);
+    return ok(
+      res,
+      "Login con Google exitoso",
+      {
+        accessToken,
+        refreshToken,
+        usuario: buildUserResponse(user),
+      },
+      200
+    );
   } catch (error) {
-    return handleControllerError(res, 'Auth.googleLogin', error);
+    return handleControllerError(res, "Auth.googleLogin", error);
   }
 }
 
@@ -546,17 +609,17 @@ async function forgotPassword(req, res) {
     const { correo } = req.body || {};
 
     if (!correo) {
-      return fail(res, 'El correo es obligatorio', null, 400);
+      return fail(res, "El correo es obligatorio", null, 400);
     }
 
     const user = await Usuario.findOne({
-      where: { correo: normalizeEmail(correo) }
+      where: { correo: normalizeEmail(correo) },
     });
 
     if (!user) {
       return ok(
         res,
-        'Si el correo existe, se enviaron instrucciones para recuperar la contraseña',
+        "Si el correo existe, se enviaron instrucciones para recuperar la contraseña",
         null,
         200
       );
@@ -568,39 +631,46 @@ async function forgotPassword(req, res) {
 
     await user.update({
       token_recuperacion_hash: resetTokenHash,
-      token_recuperacion_expira: resetTokenExpires
+      token_recuperacion_expira: resetTokenExpires,
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     try {
       await sendResetPasswordMail({
         to: user.correo,
         resetLink,
-        userName: user.nombres
+        userName: user.nombres,
       });
     } catch (mailError) {
-      console.error('Error SMTP forgotPassword:', mailError);
-      return fail(res, 'No se pudo enviar el correo de recuperación', null, 500);
+      console.error("Error SMTP forgotPassword:", mailError);
+      return fail(
+        res,
+        "No se pudo enviar el correo de recuperación",
+        null,
+        500
+      );
     }
 
     await registrarActividad({
       usuarioId: user?.id || null,
-      modulo: 'AUTH',
-      accion: 'FORGOT_PASSWORD',
-      descripcion: `Solicitud de recuperación de contraseña para ${normalizeEmail(correo)}`,
-      req
+      modulo: "AUTH",
+      accion: "FORGOT_PASSWORD",
+      descripcion: `Solicitud de recuperación de contraseña para ${normalizeEmail(
+        correo
+      )}`,
+      req,
     });
 
     return ok(
       res,
-      'Si el correo existe, se enviaron instrucciones para recuperar la contraseña',
+      "Si el correo existe, se enviaron instrucciones para recuperar la contraseña",
       null,
       200
     );
   } catch (error) {
-    return handleControllerError(res, 'Auth.forgotPassword', error);
+    return handleControllerError(res, "Auth.forgotPassword", error);
   }
 }
 
@@ -611,11 +681,16 @@ async function resetPassword(req, res) {
     const { token, nuevaContrasena } = req.body || {};
 
     if (!token || !nuevaContrasena) {
-      return fail(res, 'Token y nueva contraseña son obligatorios', null, 400);
+      return fail(res, "Token y nueva contraseña son obligatorios", null, 400);
     }
 
     if (String(nuevaContrasena).length < 8) {
-      return fail(res, 'La nueva contraseña debe tener mínimo 8 caracteres', null, 400);
+      return fail(
+        res,
+        "La nueva contraseña debe tener mínimo 8 caracteres",
+        null,
+        400
+      );
     }
 
     const tokenHash = hashResetToken(token);
@@ -623,59 +698,57 @@ async function resetPassword(req, res) {
     const user = await Usuario.findOne({
       where: {
         token_recuperacion_hash: tokenHash,
-        activo: true
-      }
+        activo: true,
+      },
     });
 
     if (!user) {
-      return fail(res, 'Token inválido o no encontrado', null, 400);
+      return fail(res, "Token inválido o no encontrado", null, 400);
     }
 
     if (
       !user.token_recuperacion_expira ||
       new Date(user.token_recuperacion_expira) < new Date()
     ) {
-      return fail(res, 'El token ha expirado', null, 400);
+      return fail(res, "El token ha expirado", null, 400);
     }
 
-    const nuevaContrasenaHash = await bcrypt.hash(String(nuevaContrasena), 10);
+    const nuevaContrasenaHash = await bcrypt.hash(
+      String(nuevaContrasena),
+      10
+    );
 
     await user.update({
       contrasena: nuevaContrasenaHash,
       token_recuperacion_hash: null,
       token_recuperacion_expira: null,
-      ultimo_login: null
+      ultimo_login: null,
     });
 
     await Sesion.update(
       {
         revocada: true,
-        ultimo_uso: new Date()
+        ultimo_uso: new Date(),
       },
       {
         where: {
           usuario_id: user.id,
-          revocada: false
-        }
+          revocada: false,
+        },
       }
     );
 
     await registrarActividad({
       usuarioId: user.id,
-      modulo: 'AUTH',
-      accion: 'RESET_PASSWORD',
-      descripcion: 'Restablecimiento de contraseña exitoso',
-      req
+      modulo: "AUTH",
+      accion: "RESET_PASSWORD",
+      descripcion: "Restablecimiento de contraseña exitoso",
+      req,
     });
 
-    return ok(
-      res,
-      'Contraseña actualizada correctamente',
-      null,
-      200
-    );
+    return ok(res, "Contraseña actualizada correctamente", null, 200);
   } catch (error) {
-    return handleControllerError(res, 'Auth.resetPassword', error);
+    return handleControllerError(res, "Auth.resetPassword", error);
   }
 }
 
@@ -688,5 +761,5 @@ module.exports = {
   sessions,
   googleLogin,
   forgotPassword,
-  resetPassword
+  resetPassword,
 };
