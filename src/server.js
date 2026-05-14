@@ -1,12 +1,10 @@
 require('dotenv').config();
+
 const app = require('./app');
 const { sequelize } = require('./database/sequelize');
 
 const PORT = Number(process.env.PORT || 3000);
 
-// =========================
-// RUTAS BÁSICAS (salud + raíz)
-// =========================
 app.get('/', (req, res) => {
   res.status(200).json({
     ok: true,
@@ -19,6 +17,7 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   try {
     await sequelize.authenticate();
+
     return res.status(200).json({
       ok: true,
       db: 'connected',
@@ -33,20 +32,14 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// =========================
-// START
-// =========================
-(async () => {
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 API corriendo en puerto ${PORT}`);
+  console.log(`✅ Health: /health`);
+
   try {
     await sequelize.authenticate();
-    console.log('✅ DB conectada (Sequelize)');
-
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 API en http://localhost:${PORT}`);
-      console.log(`✅ Health: http://localhost:${PORT}/health`);
-    });
+    console.log('✅ DB conectada correctamente');
   } catch (err) {
-    console.error('❌ Error iniciando:', err);
-    process.exit(1);
+    console.error('⚠️ La API inició, pero la DB falló:', err.message);
   }
-})();
+});
