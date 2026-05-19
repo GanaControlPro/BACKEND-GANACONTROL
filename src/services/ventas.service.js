@@ -15,6 +15,63 @@ function toDateOnly(date) {
   return date.toISOString().split('T')[0];
 }
 
+async function resolverGanadoParaVenta({
+  codigo,
+  ganado_id,
+  finca_id,
+  ventaIdExcluir = null,
+  transaction,
+}) {
+  const whereGanado = ganado_id
+    ? { id: ganado_id, finca_id }
+    : { codigo, finca_id };
+
+  const ganado = await Ganado.findOne({
+    where: whereGanado,
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!ganado) {
+    const error = new Error(`No existe ganado con código/id ${codigo || ganado_id}`);
+    error.status = 404;
+    throw error;
+  }
+
+  if (ganado.estado_comercial === 'Vendido') {
+    const error = new Error(`El ganado ${ganado.codigo} ya está marcado como vendido`);
+    error.status = 409;
+    throw error;
+  }
+
+  const whereDetalle = { ganado_id: ganado.id };
+
+  if (ventaIdExcluir) {
+    whereDetalle.venta_id = { [Op.ne]: ventaIdExcluir };
+  }
+
+  const ventaExistente = await DetalleVentaGanado.findOne({
+    where: whereDetalle,
+    include: [
+      {
+        model: Venta,
+        as: 'venta',
+        where: { finca_id, estado: 'Completado' },
+        required: true,
+      },
+    ],
+    transaction,
+  });
+
+  if (ventaExistente) {
+    const error = new Error(`El ganado ${ganado.codigo} ya fue vendido en otra venta`);
+    error.status = 409;
+    throw error;
+  }
+
+  return ganado;
+}
+
 async function crearVenta({
   finca_id,
   cliente,
@@ -33,37 +90,28 @@ async function crearVenta({
     let total = 0;
 
     for (const it of ganadoItems) {
-      let ganadoId = it.ganado_id || null;
-
-      if (!ganadoId && it.codigo) {
-        const ganado = await Ganado.findOne({
-          where: { codigo: it.codigo, finca_id },
-          transaction: t,
-        });
-
-        if (!ganado) {
-          const error = new Error(`No existe ganado con código ${it.codigo}`);
-          error.status = 404;
-          throw error;
-        }
-
-        ganadoId = ganado.id;
-      }
-
-      if (!ganadoId) {
-        const error = new Error('Debes enviar ganado_id o codigo');
-        error.status = 400;
-        throw error;
-      }
+      const ganado = await resolverGanadoParaVenta({
+        codigo: it.codigo,
+        ganado_id: it.ganado_id,
+        finca_id,
+        transaction: t,
+      });
 
       await DetalleVentaGanado.create(
         {
           venta_id: venta.id,
-          ganado_id: ganadoId,
+          ganado_id: ganado.id,
           precio: it.precio,
         },
         { transaction: t }
       );
+
+      if (estado === 'Completado') {
+        await ganado.update(
+          { estado_comercial: 'Vendido' },
+          { transaction: t }
+        );
+      }
 
       total += Number(it.precio || 0);
     }
@@ -109,7 +157,7 @@ async function crearVenta({
       { where: { id: venta.id }, transaction: t }
     );
 
-    const final = await Venta.findByPk(venta.id, {
+    return await Venta.findByPk(venta.id, {
       transaction: t,
       include: [
         {
@@ -143,8 +191,6 @@ async function crearVenta({
         },
       ],
     });
-
-    return final;
   });
 }
 
@@ -161,11 +207,19 @@ async function actualizarVentaCompleta(id, finca_id, payload) {
       throw error;
     }
 
+    const detallesGanadoAnteriores = await DetalleVentaGanado.findAll({
+      where: { venta_id: id },
+      transaction: t,
+    });
+
+    const ganadoAnteriorIds = detallesGanadoAnteriores.map((d) => d.ganado_id);
+    const nuevoEstado = payload.estado ?? venta.estado;
+
     await venta.update(
       {
         cliente: payload.cliente,
         fecha: payload.fecha,
-        estado: payload.estado ?? venta.estado,
+        estado: nuevoEstado,
       },
       { transaction: t }
     );
@@ -182,40 +236,68 @@ async function actualizarVentaCompleta(id, finca_id, payload) {
 
     let total = 0;
 
+    const ganadoNuevoIds = [];
+
     for (const it of payload.ganadoItems || []) {
-      let ganadoId = it.ganado_id || null;
+      const ganado = await resolverGanadoParaVenta({
+        codigo: it.codigo,
+        ganado_id: it.ganado_id,
+        finca_id,
+        ventaIdExcluir: id,
+        transaction: t,
+      });
 
-      if (!ganadoId && it.codigo) {
-        const ganado = await Ganado.findOne({
-          where: { codigo: it.codigo, finca_id },
-          transaction: t,
-        });
-
-        if (!ganado) {
-          const error = new Error(`No existe ganado con código ${it.codigo}`);
-          error.status = 404;
-          throw error;
-        }
-
-        ganadoId = ganado.id;
-      }
-
-      if (!ganadoId) {
-        const error = new Error('Debes enviar ganado_id o codigo');
-        error.status = 400;
-        throw error;
-      }
+      ganadoNuevoIds.push(ganado.id);
 
       await DetalleVentaGanado.create(
         {
           venta_id: id,
-          ganado_id: ganadoId,
+          ganado_id: ganado.id,
           precio: it.precio,
         },
         { transaction: t }
       );
 
+      if ((payload.estado || venta.estado) === 'Completado') {
+        await ganado.update(
+          { estado_comercial: 'Vendido' },
+          { transaction: t }
+        );
+      }
+
       total += Number(it.precio || 0);
+    }
+
+    const removidos = ganadoAnteriorIds.filter(
+      (oldId) => !ganadoNuevoIds.includes(oldId)
+    );
+
+    for (const ganadoId of removidos) {
+      const vendidoEnOtraVenta = await DetalleVentaGanado.findOne({
+        where: {
+          ganado_id: ganadoId,
+          venta_id: { [Op.ne]: id },
+        },
+        include: [
+          {
+            model: Venta,
+            as: 'venta',
+            where: { finca_id, estado: 'Completado' },
+            required: true,
+          },
+        ],
+        transaction: t,
+      });
+
+      if (!vendidoEnOtraVenta) {
+        await Ganado.update(
+          { estado_comercial: 'Disponible' },
+          {
+            where: { id: ganadoId, finca_id },
+            transaction: t,
+          }
+        );
+      }
     }
 
     for (const it of payload.productoItems || []) {
@@ -388,7 +470,6 @@ async function obtenerKPIs(finca_id) {
 
 async function obtenerResumenHero(finca_id) {
   const hoy = new Date();
-
   const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const inicioAnioActual = new Date(hoy.getFullYear(), 0, 1);
 
@@ -427,12 +508,9 @@ async function obtenerResumenHero(finca_id) {
   const cantidadMes = Number(cantidadVentasMes || 0);
 
   return {
-    // nuevos para VentasHero
     ventasEsteAnio: Number(ventasEsteAnio || 0),
     clientesActivos: Number(clientesActivos || 0),
     ingresosMes: totalMes,
-
-    // mantener compatibilidad con otros módulos como Cockpit
     totalMes,
     cantidadMes,
   };
@@ -600,7 +678,9 @@ async function obtenerLiquidacion(finca_id) {
   });
 
   return ventas.map((v) => {
-    const cantidadGanado = Array.isArray(v.detalle_ganado) ? v.detalle_ganado.length : 0;
+    const cantidadGanado = Array.isArray(v.detalle_ganado)
+      ? v.detalle_ganado.length
+      : 0;
 
     const cantidadProductos = Array.isArray(v.detalle_productos)
       ? v.detalle_productos.filter((x) => x.producto_id).length
@@ -677,7 +757,7 @@ async function obtenerTransacciones(finca_id, busqueda = '', estado = '') {
 }
 
 async function obtenerTransaccionPorId(id, finca_id) {
-  const venta = await Venta.findOne({
+  return await Venta.findOne({
     where: { id, finca_id },
     include: [
       {
@@ -711,8 +791,6 @@ async function obtenerTransaccionPorId(id, finca_id) {
       },
     ],
   });
-
-  return venta;
 }
 
 async function obtenerVenta(id, finca_id) {
@@ -790,19 +868,60 @@ async function obtenerVenta(id, finca_id) {
 }
 
 async function eliminarVenta(id, finca_id) {
-  const venta = await Venta.findOne({ where: { id, finca_id } });
-  if (!venta) return null;
+  return sequelize.transaction(async (t) => {
+    const venta = await Venta.findOne({
+      where: { id, finca_id },
+      transaction: t,
+    });
 
-  await DetalleVentaGanado.destroy({
-    where: { venta_id: id },
+    if (!venta) return null;
+
+    const detallesGanado = await DetalleVentaGanado.findAll({
+      where: { venta_id: id },
+      transaction: t,
+    });
+
+    const ganadoIds = detallesGanado.map((d) => d.ganado_id);
+
+    await DetalleVentaGanado.destroy({
+      where: { venta_id: id },
+      transaction: t,
+    });
+
+    await DetalleVentaProducto.destroy({
+      where: { venta_id: id },
+      transaction: t,
+    });
+
+    await venta.destroy({ transaction: t });
+
+    for (const ganadoId of ganadoIds) {
+      const vendidoEnOtraVenta = await DetalleVentaGanado.findOne({
+        where: { ganado_id: ganadoId },
+        include: [
+          {
+            model: Venta,
+            as: 'venta',
+            where: { finca_id, estado: 'Completado' },
+            required: true,
+          },
+        ],
+        transaction: t,
+      });
+
+      if (!vendidoEnOtraVenta) {
+        await Ganado.update(
+          { estado_comercial: 'Disponible' },
+          {
+            where: { id: ganadoId, finca_id },
+            transaction: t,
+          }
+        );
+      }
+    }
+
+    return true;
   });
-
-  await DetalleVentaProducto.destroy({
-    where: { venta_id: id },
-  });
-
-  await venta.destroy();
-  return true;
 }
 
 module.exports = {

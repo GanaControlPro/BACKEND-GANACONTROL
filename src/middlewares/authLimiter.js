@@ -16,9 +16,9 @@ function buildLimiter({ windowMs, max, message }) {
 }
 
 const loginLimiter = buildLimiter({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 5 * 60 * 1000, // 5 minutos
   max: 5,
-  message: 'Demasiados intentos de inicio de sesión. Intenta de nuevo en 15 minutos.'
+  message: 'Demasiados intentos de inicio de sesión. Intenta de nuevo en 5 minutos.'
 });
 
 const refreshLimiter = buildLimiter({
