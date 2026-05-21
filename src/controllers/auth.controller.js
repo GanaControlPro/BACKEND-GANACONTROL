@@ -634,8 +634,9 @@ async function forgotPassword(req, res) {
       token_recuperacion_expira: resetTokenExpires,
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const frontendUrl = (process.env.FRONTEND_URL || "https://michael010.github.io/frontend-2").replace(/\/$/, "");
+
+    const resetLink = `${frontendUrl}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     try {
       await sendResetPasswordMail({
