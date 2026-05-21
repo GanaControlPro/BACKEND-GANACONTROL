@@ -634,7 +634,9 @@ async function forgotPassword(req, res) {
       token_recuperacion_expira: resetTokenExpires,
     });
 
-    const frontendUrl = (process.env.FRONTEND_URL || "https://michael010.github.io/frontend-2").replace(/\/$/, "");
+    console.log("VERSION RESET LINK HASH 2026");
+
+    const frontendUrl = process.env.FRONTEND_URL || "https://michaell010.github.io/frontend-2";
 
     const resetLink = `${frontendUrl}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
 
