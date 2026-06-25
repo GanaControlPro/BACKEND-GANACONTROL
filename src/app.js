@@ -4,9 +4,10 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
-const inventarioAIRoutes = require("./routes/inventarioAI.routes");
 
+const inventarioAIRoutes = require('./routes/inventarioAI.routes');
 const routes = require('./routes');
+
 const { errorHandler } = require('./middlewares/errorHandler');
 const { swaggerSpec } = require('./config/swagger');
 
@@ -16,11 +17,9 @@ app.set('trust proxy', 1);
 
 app.use(cors());
 
-app.use("/api/inventario", inventarioAIRoutes);
-
 app.use(
   helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 
@@ -35,7 +34,7 @@ app.get('/', (req, res) => {
     service: 'ganacontrol-api',
     message: 'Backend GanaControl activo',
     env: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -43,21 +42,29 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     ok: true,
     service: 'ganacontrol-api',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.use('/api/ventas', require('./routes/cockpit.routes'));
+app.use('/api/inventario', inventarioAIRoutes);
 
+/*
+  IMPORTANTE:
+  No montar cockpit.routes directamente aquí con:
+  app.use('/api/ventas', require('./routes/cockpit.routes'));
+
+  Porque pisa o confunde las rutas reales de ventas.
+  Las rutas de ventas/cockpit deben entrar desde ./routes/index.js.
+*/
 app.use('/api', routes);
 
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
     message: 'Ruta no encontrada',
-    path: req.originalUrl
+    path: req.originalUrl,
   });
 });
 
